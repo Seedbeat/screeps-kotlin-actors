@@ -1,3 +1,5 @@
+// noinspection JSUnusedLocalSymbols
+
 const OK = 0;
 const ERR_NOT_OWNER = -1;
 const ERR_NO_PATH = -2;

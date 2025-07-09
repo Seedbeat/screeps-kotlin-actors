@@ -11,10 +11,6 @@ fun Store.fillPercentage(resource: ResourceConstant): Int {
     val used = getUsedCapacity(resource)?.toFloat() ?: return 0
     val capacity = getCapacity(resource)?.toFloat() ?: return 0
 
-    if (used == undefined || capacity == undefined) {
-        return 0
-    }
-
     return ((used / capacity) * 100f).roundToInt()
 }
 
