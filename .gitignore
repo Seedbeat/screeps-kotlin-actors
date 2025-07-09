@@ -8,6 +8,3 @@ gradle.properties
 
 # custom
 .kotlin
-kotlin-js-store
-gradlew
-gradlew.bat
