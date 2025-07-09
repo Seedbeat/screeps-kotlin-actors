@@ -1,12 +1,13 @@
 package creep.roles
 
+import creep.wait
 import screeps.api.Creep
 import screeps.api.OK
 import screeps.api.RESOURCES_ALL
 import screeps.api.RESOURCE_ENERGY
 
 fun Creep.sweep() = workerBase(
-    sourceSearch = { droppedResources.firstOrNull() },
+    sourceSearch = { droppedResources.firstOrNull().also { if (it == null) wait() } },
     sourceAction = { pickup(it) },
     targetSearch = { room.storage },
     targetAction = { target ->

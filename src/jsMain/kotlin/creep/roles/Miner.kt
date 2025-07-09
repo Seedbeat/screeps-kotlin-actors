@@ -1,13 +1,12 @@
 package creep.roles
 
 import memory.workObjectId
-import room.findFreeResourceOfType
 import screeps.api.*
 import screeps.api.structures.StructureContainer
 import store.isFull
 
 fun Creep.mine() = workerBase(
-    sourceSearch = { room.findFreeResourceOfType(FIND_SOURCES).firstOrNull() },
+    sourceSearch = { findClosestAvailableSource() },
     sourceAction = { source ->
         val container = if (memory.workObjectId.isEmpty()) {
             val look = room.lookAt(pos).firstOrNull { it.structure?.structureType == STRUCTURE_CONTAINER }

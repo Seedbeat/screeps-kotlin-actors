@@ -1,10 +1,13 @@
 package creep.roles
 
+import creep.wait
 import screeps.api.Creep
 import screeps.api.RESOURCES_ALL
 
 fun Creep.dig() = workerBase(
-    sourceSearch = { tombstoneResources.firstOrNull { it.store.getUsedCapacity() != 0 } },
+    sourceSearch = {
+        (tombstoneResources.firstOrNull() ?: ruinResources.firstOrNull()).also { if (it == null) wait() }
+    },
     sourceAction = { source ->
         RESOURCES_ALL.map { withdraw(source, it) }.sortedBy { it.hashCode() }.distinct().first()
     },

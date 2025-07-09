@@ -35,7 +35,7 @@ fun Creep.renew() {
         ERR_NOT_ENOUGH_ENERGY,
         ERR_FULL -> setUnassigned(room)
 
-        OK -> if (ticksToLive == CREEP_LIFE_TIME) setUnassigned(room)
+        OK -> if (ticksToLive >= CREEP_LIFE_TIME * 0.9) setUnassigned(room)
 
         else -> log.error("Unknown code:", code)
     }

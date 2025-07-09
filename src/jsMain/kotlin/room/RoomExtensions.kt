@@ -15,14 +15,6 @@ import utils.tryRelease
 
 val Room.log: ILogger by lazyPerTick { Logging("Room:$name", LogLevel.ERROR).log }
 
-fun <T : Identifiable> Room.findFreeResourceOfType(findConstant: FindConstant<T>): Array<T> {
-    return find(findConstant, options {
-        filter = { foundObject ->
-            memory.resourceSemaphore.isAvailable(foundObject.id) ?: true
-        }
-    })
-}
-
 fun Room.acquireResource(ownerId: String, resourceId: String) {
     when (memory.resourceSemaphore.tryAcquire(resourceId)) {
         true -> log.info("$resourceId acquired by $ownerId, OK")

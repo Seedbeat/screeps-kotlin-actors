@@ -14,6 +14,7 @@ import screeps.api.structures.*
 import screeps.utils.contains
 import screeps.utils.lazyPerTick
 import store.firstNonFilledOrNull
+import store.isFull
 import store.isNonFilled
 import utils.*
 import utils.log.ILogging
@@ -94,7 +95,11 @@ class RoomContext(
 
     val damagedStructures by lazyPerNthTick(5) {
         structuresAll
-            .filter { it.structureType != STRUCTURE_CONTROLLER && it.health < 95 }
+            .filter {
+                it.structureType != STRUCTURE_CONTROLLER
+                        && it.hits > 0 && it.hitsMax > 0
+                        && it.health < 95
+            }
             .sortedBy { it.health }
             .toTypedArray()
     }
@@ -115,7 +120,7 @@ class RoomContext(
         structuresAll[STRUCTURE_ROAD]
     }
 
-    val towers: Array<StructureTower> by lazyPerNthTick(10) {
+    val towers: Array<StructureTower> by lazyPerTick {
         structuresAll[STRUCTURE_TOWER]
     }
 
@@ -123,8 +128,12 @@ class RoomContext(
         room.find(FIND_DROPPED_RESOURCES)
     }
 
+    val ruinResources: Array<Ruin> by lazyPerTick {
+        room.find(FIND_RUINS, options { filter = { it.store.getUsedCapacity() > 0 } })
+    }
+
     val tombstoneResources: Array<Tombstone> by lazyPerTick {
-        room.find(FIND_TOMBSTONES)
+        room.find(FIND_TOMBSTONES, options { filter = { it.store.getUsedCapacity() > 0 } })
     }
 
     val isSourcePresent get() = sources.isNotEmpty() || sourcesContainers.isNotEmpty()
@@ -178,14 +187,14 @@ class RoomContext(
     }
 
     fun <T : StoreOwner> HasPosition.findClosestEnergyLack(): T? {
-        if (isEnergyFull)
-            return null
-
-        val structure = pos.findClosestByPath(extensions, options {
-            filter = { it.store.isNonFilled(RESOURCE_ENERGY) }
-        })
-            ?: towers.firstNonFilledOrNull(RESOURCE_ENERGY)
-            ?: spawns.firstNonFilledOrNull(RESOURCE_ENERGY)
+        val structure = if (extensions.any { it.store.isNonFilled(RESOURCE_ENERGY) })
+            pos.findClosestByPath(extensions, options {
+                filter = { it.store.isNonFilled(RESOURCE_ENERGY) }
+            })
+        else {
+            towers.firstNonFilledOrNull(RESOURCE_ENERGY)
+                ?: spawns.firstNonFilledOrNull(RESOURCE_ENERGY)
+        }
 
         return structure.unsafeCast<T?>()
     }

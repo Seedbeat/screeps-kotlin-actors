@@ -1,8 +1,6 @@
 package store
 
-import screeps.api.ResourceConstant
-import screeps.api.Store
-import screeps.api.StoreOwner
+import screeps.api.*
 import kotlin.math.roundToInt
 
 fun Store.isFull(resource: ResourceConstant) = getFreeCapacity(resource) == 0
@@ -12,6 +10,11 @@ fun Store.isNonFilled(resource: ResourceConstant) = !isFull(resource)
 fun Store.fillPercentage(resource: ResourceConstant): Int {
     val used = getUsedCapacity(resource)?.toFloat() ?: return 0
     val capacity = getCapacity(resource)?.toFloat() ?: return 0
+
+    if (used == undefined || capacity == undefined) {
+        return 0
+    }
+
     return ((used / capacity) * 100f).roundToInt()
 }
 
