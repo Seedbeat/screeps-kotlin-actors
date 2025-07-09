@@ -9,7 +9,6 @@ import creep.unlockResource
 import memory.role
 import memory.state
 import screeps.api.*
-import store.isEmpty
 
 fun Creep.recycle() {
     unlockResource(room)

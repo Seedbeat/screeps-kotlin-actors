@@ -1,13 +1,11 @@
 package scheduler.missions
 
 import creep.enums.Role
-import memory.resourceSemaphore
 import room.RoomContext
 import room.RoomStage
 import scheduler.IRoomDefaultMission
 import utils.log.ILogging
 import utils.log.Logging
-import utils.maximum
 
 object RoomScavengerSpawn : IRoomDefaultMission, ILogging by Logging<RoomScavengerSpawn>() {
     // Goals:

@@ -1,12 +1,9 @@
 package creep
 
 import Settings
-import creep.enums.Role
 import creep.enums.State
 import invoke
 import memory.lockedObjectId
-import memory.pause
-import memory.role
 import memory.state
 import room.acquireResource
 import room.releaseResource

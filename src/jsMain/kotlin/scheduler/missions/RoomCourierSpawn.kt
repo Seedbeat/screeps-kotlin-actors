@@ -5,7 +5,6 @@ import room.RoomContext
 import room.RoomStage
 import scheduler.IRoomDefaultMission
 import screeps.api.RESOURCE_ENERGY
-import store.isNonEmpty
 import utils.log.ILogging
 import utils.log.Logging
 

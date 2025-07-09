@@ -1,7 +1,6 @@
 package scheduler
 
 import creep.enums.Role
-import memory.role
 import room.RoomContext
 import screeps.api.CreepMemory
 import screeps.api.structures.SpawnOptions

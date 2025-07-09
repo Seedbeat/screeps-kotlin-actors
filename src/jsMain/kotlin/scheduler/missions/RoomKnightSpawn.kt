@@ -1,12 +1,11 @@
 package scheduler.missions
 
 import creep.enums.Role
-import scheduler.IRoomDefaultMission
 import room.RoomContext
+import scheduler.IRoomDefaultMission
 import screeps.api.RESOURCE_ENERGY
 import store.fillPercentage
 import utils.log.ILogging
-import utils.log.LogLevel
 import utils.log.Logging
 import kotlin.math.max
 

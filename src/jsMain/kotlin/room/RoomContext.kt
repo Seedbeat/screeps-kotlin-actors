@@ -14,7 +14,6 @@ import screeps.api.structures.*
 import screeps.utils.contains
 import screeps.utils.lazyPerTick
 import store.firstNonFilledOrNull
-import store.isFull
 import store.isNonFilled
 import utils.*
 import utils.log.ILogging

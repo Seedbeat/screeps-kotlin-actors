@@ -4,7 +4,6 @@ import Root
 import map.health
 import room.RoomContext
 import scheduler.IEvent
-import scheduler.events.TowerExecutor.process
 import screeps.api.RESOURCE_ENERGY
 import screeps.api.structures.StructureTower
 import utils.CpuLogger

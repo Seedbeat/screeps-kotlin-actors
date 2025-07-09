@@ -1,12 +1,8 @@
 package room
 
 import memory.resourceSemaphore
-import screeps.api.FindConstant
-import screeps.api.Identifiable
 import screeps.api.Room
-import screeps.api.options
 import screeps.utils.lazyPerTick
-import utils.isAvailable
 import utils.log.ILogger
 import utils.log.LogLevel
 import utils.log.Logging

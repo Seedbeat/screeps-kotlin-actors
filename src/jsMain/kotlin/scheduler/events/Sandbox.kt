@@ -1,7 +1,6 @@
 package scheduler.events
 
 import scheduler.IEvent
-import screeps.api.*
 import store.globalResourcePlan
 import utils.log.ILogging
 import utils.log.LogLevel
