@@ -5,3 +5,7 @@ out/
 build/
 
 gradle.properties
+
+# custom
+.kotlin
+kotlin-js-store
