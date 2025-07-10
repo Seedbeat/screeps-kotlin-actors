@@ -1,3 +1,4 @@
+import groovy.json.JsonOutput
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -22,14 +23,18 @@ val screepsHost: String? by project
 val screepsBranch: String? by project
 val branch = screepsBranch ?: "test"
 val host = screepsHost ?: "https://screeps.com"
-val bundledJsDirectory: Directory = project.layout.buildDirectory.dir("bundle").get()
+
+val bundledDirectory: Directory = project.layout.buildDirectory.dir("bundle").get()
+val bundledJsDirectory: Directory = bundledDirectory.dir("js")
+val bundledWasmDirectory: Directory = bundledDirectory.dir("wasm")
+val releaseDirectory: Directory = bundledDirectory.dir("release")
+
 val minifiedJsFilename: String = "${project.name}-minified.js"
 val optimizedJsFilename: String = "${project.name}-optimized.js"
-val releaseJsDirectory: Directory = bundledJsDirectory.dir("release")
 val releaseJsFilename: String = "${project.name}.js"
+val minifiedWasmFilename: String = "${project.name}.js"
+val releaseWasmFilename: String = "${project.name}.wasm"
 
-val minifiedWasmDirectory: Directory = project.layout.buildDirectory.dir("minified-wasm").get()
-val minifiedWasmFilename: String = "${project.name}-wasm.js"
 
 kotlin {
     js {
@@ -53,7 +58,7 @@ kotlin {
         browser {
             commonWebpackConfig {
                 output?.globalObject = "this"
-                outputPath = minifiedWasmDirectory.asFile
+                outputPath = bundledWasmDirectory.asFile
                 outputFileName = minifiedWasmFilename
             }
         }
@@ -66,12 +71,6 @@ kotlin {
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
             }
         }
-
-        val wasmJsMain by getting {
-            dependencies {
-                sourceSets.jsMain
-            }
-        }
     }
 }
 
@@ -81,7 +80,6 @@ tasks.register<Exec>("optimize", Exec::class) {
 
     val minifiedFile = bundledJsDirectory.file(minifiedJsFilename).asFile
     val optimizedFile = bundledJsDirectory.file(optimizedJsFilename).asFile
-    val releaseFile = releaseJsDirectory.file(releaseJsFilename).asFile
 
     val closureCli = project.layout.buildDirectory.file("js/node_modules/google-closure-compiler/cli.js").get().asFile
 
@@ -94,22 +92,36 @@ tasks.register<Exec>("optimize", Exec::class) {
         "--env=BROWSER",
         "--warning_level=QUIET"
     )
+}
+
+tasks.register("release") {
+    group = "screeps"
+    dependsOn(tasks["optimize"])
+
+    val optimizedJsFile = bundledJsDirectory.file(optimizedJsFilename).asFile
+    val releaseJsFile = releaseDirectory.file(releaseJsFilename).asFile
+    val wasmDir = bundledWasmDirectory.asFile
+    val releaseWasmFile = releaseDirectory.file(releaseWasmFilename).asFile
 
     doLast {
-        releaseFile.delete()
-        optimizedFile.copyTo(releaseFile)
+        delete(releaseDirectory)
+
+        val wasmFile = wasmDir.listFiles().single { it.extension == "wasm" }
+
+        optimizedJsFile.copyTo(releaseJsFile)
+        wasmFile.copyTo(releaseWasmFile)
     }
 }
 
 tasks.register("deploy") {
     group = "screeps"
-    dependsOn(tasks["optimize"])
+    dependsOn(tasks["release"])
 
     doFirst { // use doFirst to avoid running this code in configuration phase
         if (screepsToken == null && (screepsUser == null || screepsPassword == null)) {
             throw InvalidUserDataException("you need to supply either screepsUser and screepsPassword or screepsToken before you can upload code")
         }
-        val minifiedCodeLocation = releaseJsDirectory.asFile
+        val minifiedCodeLocation = releaseDirectory.asFile
         if (!minifiedCodeLocation.isDirectory) {
             throw InvalidUserDataException("found no code to upload at ${minifiedCodeLocation.path}")
         }
@@ -128,22 +140,49 @@ tasks.register("deploy") {
         correct format
          */
 
-        val jsFiles = minifiedCodeLocation.listFiles { _, name -> name.endsWith(".js") }.orEmpty()
-        val (mainModule, otherModules) = jsFiles.partition { it.nameWithoutExtension == project.name }
-        val main = mainModule.firstOrNull()
-            ?: throw IllegalStateException("Could not find js file corresponding to main module in ${minifiedCodeLocation.absolutePath}. Was looking for ${project.name}.js")
+        fun String.encodeBase64(): String = Base64.getEncoder().encodeToString(this.toByteArray())
+        fun File.encodeBase64(): String = Base64.getEncoder().encodeToString(this.readBytes())
 
-        val modules = mutableMapOf<String, String>()
-        modules["main"] = main.readText()
-        modules.putAll(otherModules.associate { it.nameWithoutExtension to it.readText() })
+        fun getFiles(extension: String): Pair<File?, List<File>> =
+            minifiedCodeLocation
+                .listFiles { _, name -> name.endsWith(".$extension") }.orEmpty()
+                .partition { it.nameWithoutExtension == project.name }
+                .let { Pair(it.first.singleOrNull(), it.second) }
+
+        val (mainJsModule, otherJsModules) = getFiles("js")
+        val (mainWasmModule, otherWasmModules) = getFiles("wasm")
+
+        val main = mainJsModule ?: throw IllegalStateException(buildString {
+            append("Could not find js file corresponding to main module in ${minifiedCodeLocation.absolutePath}. ")
+            append("Was looking for ${project.name}.js")
+        })
+
+        val modules = mutableMapOf<String, Any>()
+
+        fun addModule(name: String, file: File, isBinary: Boolean) {
+            if (isBinary) {
+                modules[name] = mapOf("binary" to file.encodeBase64())
+            } else {
+                modules[name] = file.readText()
+            }
+        }
+
+        addModule("main", main, isBinary = false)
+        otherJsModules.forEach { addModule(it.nameWithoutExtension, it, isBinary = false) }
+
+        if (mainWasmModule != null) {
+            addModule("wasm", mainWasmModule, isBinary = true)
+        }
+        otherWasmModules.forEach { addModule(it.nameWithoutExtension, it, isBinary = true) }
+
 
         val uploadContent = mapOf(
             "branch" to branch,
             "modules" to modules
         )
-        val uploadContentJson = groovy.json.JsonOutput.toJson(uploadContent)
+        val uploadContentJson = JsonOutput.toJson(uploadContent)
 
-        logger.lifecycle("Uploading ${jsFiles.count()} files to branch '$branch' on server $host")
+        logger.lifecycle("Uploading ${modules.keys.count()} files to branch '$branch' on server $host")
         logger.debug("Request Body: $uploadContentJson")
 
         // upload using java 11 http client -> requires java 11
@@ -156,7 +195,6 @@ tasks.register("deploy") {
         if (screepsToken != null) {
             request.header("X-Token", screepsToken)
         } else {
-            fun String.encodeBase64() = Base64.getEncoder().encodeToString(this.toByteArray())
             request.header("Authorization", "Basic " + "$screepsUser:$screepsPassword".encodeBase64())
         }
 
