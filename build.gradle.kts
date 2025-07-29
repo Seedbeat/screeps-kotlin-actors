@@ -22,22 +22,16 @@ val screepsPassword: String? by project
 val screepsToken: String? by project
 val screepsHost: String? by project
 val screepsBranch: String? by project
-val branch = "test"
+val branch = screepsBranch ?: "test"
 val host = screepsHost ?: "https://screeps.com"
 
 val bundledDirectory: Directory = project.layout.buildDirectory.dir("bundle").get()
 val bundledJsDirectory: Directory = bundledDirectory.dir("js")
-val bundledWasmDirectory: Directory = bundledDirectory.dir("wasm")
 val releaseDirectory: Directory = bundledDirectory.dir("release")
 
 val minifiedJsFilename: String = "${project.name}-minified.js"
 val optimizedJsFilename: String = "${project.name}-optimized.js"
 val releaseJsFilename: String = "${project.name}.js"
-val minifiedWasmFilename: String = "${project.name}.js"
-val releaseWasmFilename: String = "${project.name}.wasm"
-
-val wasmBridgeDir = layout.buildDirectory.dir("generated/wasmBridge").get()
-val wasmBridgeFile = wasmBridgeDir.file("wasm.js")
 
 
 kotlin {
@@ -56,93 +50,15 @@ kotlin {
         }
     }
 
-    @Suppress("OPT_IN_USAGE")
-    wasmJs {
-        binaries.executable()
-        useCommonJs()
-
-        browser {
-            commonWebpackConfig {
-                output?.globalObject = "this"
-                outputPath = bundledWasmDirectory.asFile
-                outputFileName = minifiedWasmFilename
-            }
-        }
-    }
-
     sourceSets {
         jsMain {
             dependencies {
                 implementation("io.github.exav:screeps-kotlin-types:2.1.0")
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
             }
-            kotlin.srcDir(wasmBridgeDir)
         }
     }
 }
-
-tasks.register("generateWasmToJsBridge") {
-    dependsOn("wasmJsProductionExecutableCompileSync")
-
-    val regex = buildString {
-        append("export async function instantiate\\(imports=\\{\\}, runInitializer=true\\) \\{\n    (.*)")
-        append("// Placed here to give access to it from externals \\(js_code\\).*(const importObject = \\{.*)try \\{")
-    }.toRegex(RegexOption.DOT_MATCHES_ALL)
-
-    val wasmBridge = layout.buildDirectory
-        .file("wasm/packages/${project.name}/kotlin/${project.name}.uninstantiated.mjs")
-
-    doLast {
-        val text = wasmBridge.get().asFile.readText()
-
-        val jsCode = regex.find(text)!!.let {
-            it.groupValues[1] + it.groupValues[2]
-        }
-
-        mkdir(wasmBridgeDir)
-
-        wasmBridgeFile.asFile.writeText("""
-            function wasm(name) {
-            
-                %s
-            
-                const bytecode = __non_webpack_require__(name);
-                const wasmModule = new WebAssembly.Module(bytecode);
-                const wasmInstance = new WebAssembly.Instance(wasmModule, importObject);
-
-
-                const wasmExports = wasmInstance.exports;
-                wasmExports._initialize();
-
-                return { instance: wasmInstance,  exports: wasmExports };
-            }
-
-
-            module.exports = wasm;
-        """.trimIndent().format(jsCode))
-    }
-}
-
-tasks.named("compileKotlinJs") { // Or compileKotlin<YourSourceSet>Js
-    dependsOn("generateWasmToJsBridge")
-}
-
-tasks.register<Copy>("copyWasmToJsBridge") {
-    dependsOn("generateWasmToJsBridge")
-    shouldRunAfter("jsProductionExecutableCompileSync")
-
-    from(wasmBridgeDir)
-    into(layout.buildDirectory.dir("js/packages/${project.name}/kotlin/"))
-}
-
-tasks.named("jsProductionExecutableCompileSync") {
-    dependsOn("wasmJsProductionExecutableCompileSync", "copyWasmToJsBridge")
-}
-
-tasks.named("jsBrowserProductionWebpack") {
-    mustRunAfter("copyWasmToJsBridge")
-}
-
 
 tasks.register<Exec>("optimize", Exec::class) {
     group = "build"
@@ -161,26 +77,21 @@ tasks.register<Exec>("optimize", Exec::class) {
         "-O=SIMPLE",
         "--env=BROWSER",
         "--warning_level=QUIET",
-        "--formatting=PRETTY_PRINT"
+//        "--formatting=PRETTY_PRINT"
     )
 }
 
 tasks.register("release") {
     group = "screeps"
-    dependsOn(tasks["build"])
+    dependsOn(tasks["optimize"])
 
-    val optimizedJsFile = bundledJsDirectory.file(minifiedJsFilename).asFile
+    val optimizedJsFile = bundledJsDirectory.file(optimizedJsFilename).asFile
     val releaseJsFile = releaseDirectory.file(releaseJsFilename).asFile
-    val wasmDir = bundledWasmDirectory.asFile
-    val releaseWasmFile = releaseDirectory.file(releaseWasmFilename).asFile
 
     doLast {
         delete(releaseDirectory)
 
-        val wasmFile = wasmDir.listFiles().single { it.extension == "wasm" }
-
         optimizedJsFile.copyTo(releaseJsFile)
-        wasmFile.copyTo(releaseWasmFile)
     }
 }
 
@@ -221,7 +132,6 @@ tasks.register("deploy") {
                 .let { Pair(it.first.singleOrNull(), it.second) }
 
         val (mainJsModule, otherJsModules) = getFiles("js")
-        val (mainWasmModule, otherWasmModules) = getFiles("wasm")
 
         val main = mainJsModule ?: throw IllegalStateException(buildString {
             append("Could not find js file corresponding to main module in ${minifiedCodeLocation.absolutePath}. ")
@@ -240,12 +150,6 @@ tasks.register("deploy") {
 
         addModule("main", main, isBinary = false)
         otherJsModules.forEach { addModule(it.nameWithoutExtension, it, isBinary = false) }
-
-        if (mainWasmModule != null) {
-            addModule("wasm", mainWasmModule, isBinary = true)
-        }
-        otherWasmModules.forEach { addModule(it.nameWithoutExtension, it, isBinary = true) }
-
 
         val uploadContent = mapOf(
             "branch" to branch,

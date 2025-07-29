@@ -7,7 +7,6 @@
 @ExperimentalJsExport
 @JsExport
 fun loop() {
-//    Root.gameLoop()
-    console.log("From wasm: " + wasm.loop())
+    Root.gameLoop()
 }
 
