@@ -1,5 +1,3 @@
-import kotlin.wasm.WasmExport
-
 /**
  * Entry point
  * is called by screeps
@@ -8,14 +6,13 @@ import kotlin.wasm.WasmExport
  */
 
 external interface Console {
-    fun info(vararg o: String)
+    fun log(vararg o: Int)
 }
 
 external val console: Console
 
-@WasmExport
-fun loop() {
-
-
-    console.info("Hello from wasm!")
+@ExperimentalJsExport
+@JsExport
+fun loop(): Int {
+    return 127
 }

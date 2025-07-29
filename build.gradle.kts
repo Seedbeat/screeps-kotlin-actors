@@ -1,4 +1,5 @@
 import groovy.json.JsonOutput
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -21,7 +22,7 @@ val screepsPassword: String? by project
 val screepsToken: String? by project
 val screepsHost: String? by project
 val screepsBranch: String? by project
-val branch = screepsBranch ?: "test"
+val branch = "test"
 val host = screepsHost ?: "https://screeps.com"
 
 val bundledDirectory: Directory = project.layout.buildDirectory.dir("bundle").get()
@@ -35,6 +36,9 @@ val releaseJsFilename: String = "${project.name}.js"
 val minifiedWasmFilename: String = "${project.name}.js"
 val releaseWasmFilename: String = "${project.name}.wasm"
 
+val wasmBridgeDir = layout.buildDirectory.dir("generated/wasmBridge").get()
+val wasmBridgeFile = wasmBridgeDir.file("wasm.js")
+
 
 kotlin {
     js {
@@ -46,6 +50,8 @@ kotlin {
                 output?.globalObject = "this"
                 outputPath = bundledJsDirectory.asFile
                 outputFileName = minifiedJsFilename
+
+                mode = KotlinWebpackConfig.Mode.DEVELOPMENT
             }
         }
     }
@@ -70,9 +76,73 @@ kotlin {
                 implementation("io.github.exav:screeps-kotlin-types:2.1.0")
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
             }
+            kotlin.srcDir(wasmBridgeDir)
         }
     }
 }
+
+tasks.register("generateWasmToJsBridge") {
+    dependsOn("wasmJsProductionExecutableCompileSync")
+
+    val regex = buildString {
+        append("export async function instantiate\\(imports=\\{\\}, runInitializer=true\\) \\{\n    (.*)")
+        append("// Placed here to give access to it from externals \\(js_code\\).*(const importObject = \\{.*)try \\{")
+    }.toRegex(RegexOption.DOT_MATCHES_ALL)
+
+    val wasmBridge = layout.buildDirectory
+        .file("wasm/packages/${project.name}/kotlin/${project.name}.uninstantiated.mjs")
+
+    doLast {
+        val text = wasmBridge.get().asFile.readText()
+
+        val jsCode = regex.find(text)!!.let {
+            it.groupValues[1] + it.groupValues[2]
+        }
+
+        mkdir(wasmBridgeDir)
+
+        wasmBridgeFile.asFile.writeText("""
+            function wasm(name) {
+            
+                %s
+            
+                const bytecode = __non_webpack_require__(name);
+                const wasmModule = new WebAssembly.Module(bytecode);
+                const wasmInstance = new WebAssembly.Instance(wasmModule, importObject);
+
+
+                const wasmExports = wasmInstance.exports;
+                wasmExports._initialize();
+
+                return { instance: wasmInstance,  exports: wasmExports };
+            }
+
+
+            module.exports = wasm;
+        """.trimIndent().format(jsCode))
+    }
+}
+
+tasks.named("compileKotlinJs") { // Or compileKotlin<YourSourceSet>Js
+    dependsOn("generateWasmToJsBridge")
+}
+
+tasks.register<Copy>("copyWasmToJsBridge") {
+    dependsOn("generateWasmToJsBridge")
+    shouldRunAfter("jsProductionExecutableCompileSync")
+
+    from(wasmBridgeDir)
+    into(layout.buildDirectory.dir("js/packages/${project.name}/kotlin/"))
+}
+
+tasks.named("jsProductionExecutableCompileSync") {
+    dependsOn("wasmJsProductionExecutableCompileSync", "copyWasmToJsBridge")
+}
+
+tasks.named("jsBrowserProductionWebpack") {
+    mustRunAfter("copyWasmToJsBridge")
+}
+
 
 tasks.register<Exec>("optimize", Exec::class) {
     group = "build"
@@ -90,15 +160,16 @@ tasks.register<Exec>("optimize", Exec::class) {
         "--js_output_file=${optimizedFile}",
         "-O=SIMPLE",
         "--env=BROWSER",
-        "--warning_level=QUIET"
+        "--warning_level=QUIET",
+        "--formatting=PRETTY_PRINT"
     )
 }
 
 tasks.register("release") {
     group = "screeps"
-    dependsOn(tasks["optimize"])
+    dependsOn(tasks["build"])
 
-    val optimizedJsFile = bundledJsDirectory.file(optimizedJsFilename).asFile
+    val optimizedJsFile = bundledJsDirectory.file(minifiedJsFilename).asFile
     val releaseJsFile = releaseDirectory.file(releaseJsFilename).asFile
     val wasmDir = bundledWasmDirectory.asFile
     val releaseWasmFile = releaseDirectory.file(releaseWasmFilename).asFile
