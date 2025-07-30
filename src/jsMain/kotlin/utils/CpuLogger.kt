@@ -61,6 +61,12 @@ object CpuLogger {
         marks[id]?.calcDiff()
     }
 
+    fun mark(id: String, parentId: String? = null, action: () -> Unit) {
+        markStart(id, parentId)
+        action()
+        markEnd(id)
+    }
+
     fun marks(): Map<String, Mark> = marks
 
     fun total() = Game.cpu.getUsed()

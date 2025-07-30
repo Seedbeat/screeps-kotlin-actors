@@ -26,16 +26,16 @@ object EventScheduler : ILogging by Logging<EventScheduler>() {
 
     fun execute() {
         events.execute {
-            CpuLogger.markStart(this::class.simpleName!!, EventScheduler::class.simpleName)
-            execute()
-            CpuLogger.markEnd(this::class.simpleName!!)
+            CpuLogger.mark(this::class.simpleName!!, EventScheduler::class.simpleName) {
+                execute()
+            }
         }
 
         Game.rooms.values.forEach { room ->
             roomMissions.execute {
-                CpuLogger.markStart("[${room.name}] " + this::class.simpleName!!, EventScheduler::class.simpleName)
-                Root.room(room.name).execute()
-                CpuLogger.markEnd("[${room.name}] " + this::class.simpleName!!)
+                CpuLogger.mark("[${room.name}] " + this::class.simpleName!!, EventScheduler::class.simpleName) {
+                    Root.room(room.name).execute()
+                }
             }
         }
     }

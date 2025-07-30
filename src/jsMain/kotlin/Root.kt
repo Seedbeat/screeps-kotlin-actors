@@ -24,16 +24,16 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
         log.info("=============================== Tick: ${Game.time} ===============================")
         CpuLogger.init()
 
-        CpuLogger.markStart("ContextCreation")
-        for ((name, room) in Game.rooms) {
-            if (!roomContext.containsKey(name))
-                roomContext[name] = RoomContext(room)
+        CpuLogger.mark("ContextCreation") {
+            for ((name, room) in Game.rooms) {
+                if (!roomContext.containsKey(name))
+                    roomContext[name] = RoomContext(room)
+            }
         }
-        CpuLogger.markEnd("ContextCreation")
 
-        CpuLogger.markStart("EventScheduler")
-        EventScheduler.execute()
-        CpuLogger.markEnd("EventScheduler")
+        CpuLogger.mark("EventScheduler") {
+            EventScheduler.execute()
+        }
 
         CpuLogger.marks().takeIf { it.isNotEmpty() }?.run {
             forEach { (_, mark) -> log.info(mark.name().padEnd(40), "CPU:", mark.diff) }
