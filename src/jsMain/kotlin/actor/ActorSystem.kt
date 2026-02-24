@@ -119,14 +119,16 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
 
             state.rounds++
 
-            val lastSteps = state.steps
+            val lastStepNumber = state.steps
             runTickRound(state)
 
             if (state.isStopped())
                 break
 
-            if (lastSteps == state.steps && state.hasWork()) {
-                log.info("[Tick] Scheduler idle. Status: $state")
+            if (state.steps == lastStepNumber) {
+                if (state.hasWork()) {
+                    log.info("[Tick] Scheduler idle. Status: $state")
+                }
                 break
             }
         }

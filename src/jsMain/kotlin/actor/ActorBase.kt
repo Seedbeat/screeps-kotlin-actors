@@ -9,11 +9,11 @@ abstract class ActorBase<CommandType : ICommand, RequestType : IRequest, Respons
     override suspend fun run() {
         while (true) {
             val msg = receive<IMessage>()
-            log.info("[${msg.messageId}]: $id received new message from '${msg.from}'")
+            log.debug("[${msg.messageId}]: received new message from '${msg.from}'")
 
             try {
                 onReceive(msg.payload)?.let { response ->
-                    log.info("[${msg.messageId}]: $id send response to '${msg.from}'")
+                    log.debug("[${msg.messageId}]: send response to '${msg.from}'")
                     sendTo(msg.from, response, msg.messageId)
                 }
             } catch (_: Exception) {
