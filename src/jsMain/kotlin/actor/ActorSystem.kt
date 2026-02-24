@@ -1,6 +1,5 @@
 package actor
 
-import actor.enums.StopReasonType
 import actor.message.IMessage
 import actor.message.IPayload
 import actor.message.IRequest
@@ -10,60 +9,25 @@ import screeps.api.Game
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
+import kotlin.collections.ArrayDeque
 import kotlin.coroutines.Continuation
 import kotlin.random.Random
 
 object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
-    private data class TickState(
-        val maxSteps: Int,
-        val cpuReserve: Double,
-        var rounds: Int = 0,
-        var steps: Int = 0,
-        var flushedResponses: Int = 0,
-        var deliveredMessages: Int = 0,
-        var stopReason: StopReasonType = StopReasonType.NONE
-    ) {
-        fun hasWork() = flushedResponses > 0 || deliveredMessages > 0
-        fun isStopped() = stopReason != StopReasonType.NONE
-
-        fun increaseFlushedResponses() {
-            flushedResponses++
-            steps++
-        }
-
-        fun increaseDeliveredMessages() {
-            deliveredMessages++
-            steps++
-        }
-
-        fun checkIsStopped(): Boolean {
-            if (steps >= maxSteps) {
-                stopReason = StopReasonType.MAX_STEPS
-                return true
-            }
-
-            if (isCpuBudgetExceeded(cpuReserve)) {
-                stopReason = StopReasonType.CPU_RESERVE
-                return true
-            }
-
-            return false
-        }
-
-        private fun isCpuBudgetExceeded(cpuReserve: Double): Boolean {
-            if (cpuReserve <= 0.0) return false
-            return (Game.cpu.limit - Game.cpu.getUsed()) <= cpuReserve
-        }
-    }
-
     private val actors = mutableMapOf<String, Actor>()
+    private val readyActorIdsQueue = ArrayDeque<String>()
+    private val readyActorIdsSet = mutableSetOf<String>()
 
     fun contains(actorId: String) = actors.containsKey(actorId)
 
-    fun remove(actorId: String) = actors.remove(actorId)
+    fun remove(actorId: String) {
+        readyActorIdsSet.remove(actorId)
+        actors.remove(actorId)
+        SleepingActors.remove(actorId)
+    }
 
     fun <T : Actor> spawn(actorId: String, create: (actorId: String) -> T) {
-        if (actors.containsKey(actorId)) {
+        if (contains(actorId)) {
             log.warn("Already spawned actor $actorId, return")
             return
         }
@@ -89,6 +53,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
         }
 
         actor.queueMessage(msg)
+        enqueueReadyActor(actorId, actor)
     }
 
     fun send(toActorId: String, fromActorId: String, payload: IPayload, messageId: String? = null) {
@@ -108,6 +73,11 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
     }
 
     fun generateMessageId() = "${Game.time}|${Random.nextInt(1000, 9999)}"
+
+    fun onActorWaitingReceive(actor: Actor, continuation: Continuation<IMessage>) {
+        SleepingActors.update(actor.id, continuation)
+        enqueueReadyActor(actor.id, actor)
+    }
 
     fun tick(maxSteps: Int = 100, cpuReserve: Double = 3.0) {
 
@@ -140,7 +110,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
 
     private fun runTickRound(state: TickState) {
         flushOnePendingResponse(state)
-        deliverMailboxMessagesToSleepingActors(state)
+        deliverMailboxMessagesToReadyActors(state)
     }
 
     private fun flushOnePendingResponse(state: TickState) {
@@ -149,18 +119,17 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
         }
     }
 
-    private fun deliverMailboxMessagesToSleepingActors(state: TickState) {
-        for ((actorId, actor) in actors) {
+    private fun deliverMailboxMessagesToReadyActors(state: TickState) {
+        while (readyActorIdsQueue.isNotEmpty()) {
             if (state.checkIsStopped())
                 break
 
-            if (!SleepingActors.isSleeping(actorId)) {
-                if (!actor.haveMessages())
-                    continue
+            val actorId = readyActorIdsQueue.removeFirst()
+            readyActorIdsSet.remove(actorId)
 
-                log.warn("[Tick] Actor '$actorId' has queued messages (${actor.mailboxSize()}), but is not waiting receive()")
+            val actor = actors[actorId] ?: continue
+            if (!SleepingActors.isSleeping(actorId))
                 continue
-            }
 
             val message = actor.pollMessage() ?: continue
             log.info("[${message.messageId}] [Tick] Deliver mailbox message to sleeping actor '$actorId'")
@@ -168,5 +137,21 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
             SleepingActors.wake(actorId, message)
             state.increaseDeliveredMessages()
         }
+    }
+
+    private fun enqueueReadyActor(actorId: String, actor: Actor? = actors[actorId]) {
+        val targetActor = actor ?: return
+
+        if (!SleepingActors.isSleeping(actorId))
+            return
+
+        if (!targetActor.haveMessages())
+            return
+
+        if (!readyActorIdsSet.add(actorId))
+            return
+
+        readyActorIdsQueue.addLast(actorId)
+        log.info("[Tick] Enqueue ready actor '$actorId' (readyQueueSize=${readyActorIdsQueue.size})")
     }
 }

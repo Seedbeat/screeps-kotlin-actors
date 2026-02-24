@@ -1,0 +1,5 @@
+package actor
+
+object ActorRegistry {
+
+}

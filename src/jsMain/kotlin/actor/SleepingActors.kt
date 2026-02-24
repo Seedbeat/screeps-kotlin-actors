@@ -14,12 +14,12 @@ object SleepingActors : ILogging by Logging<SleepingActors>(LogLevel.DEBUG) {
     fun remove(actorId: String) = sleeping.remove(actorId)
 
     fun update(actorId: String, continuation: Continuation<IMessage>) {
-        log.info("Update continuation of actor '$actorId'")
+        log.debug("Update continuation of actor '$actorId'")
         sleeping[actorId] = continuation
     }
 
     fun wake(actorId: String, msg: IMessage) {
-        log.info("[${msg.messageId}] Waking actor '$actorId'")
+        log.debug("[${msg.messageId}] Waking actor '$actorId'")
         remove(actorId)?.resume(msg)
     }
 }

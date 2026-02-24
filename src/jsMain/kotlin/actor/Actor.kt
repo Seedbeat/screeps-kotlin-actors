@@ -6,23 +6,16 @@ import actor.message.IRequest
 import kotlinx.coroutines.suspendCancellableCoroutine
 import utils.log.ILogging
 import kotlin.coroutines.Continuation
-import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.createCoroutine
 import kotlin.coroutines.resume
 
-abstract class Actor(
-    val id: String,
-    val rootContext: CoroutineContext = EmptyCoroutineContext,
-    val onFinish: () -> Unit = {}
-) : ILogging {
+abstract class Actor(val id: String) : ILogging {
     private val continuation: Continuation<Unit> = ::run.createCoroutine(object : Continuation<Unit> {
-        override val context = rootContext
+        override val context = EmptyCoroutineContext
         override fun resumeWith(result: Result<Unit>) {
             ActorSystem.remove(id)
-            SleepingActors.remove(id)
             log.info("[Lifecycle] Finish: $result")
-            onFinish.invoke()
         }
     })
     private val mailbox = mutableListOf<IMessage>()
@@ -36,11 +29,11 @@ abstract class Actor(
 
     suspend fun <T : IMessage> receive(): T = suspendCancellableCoroutine { continuation ->
         if (mailbox.isNotEmpty()) {
-            log.info("[Scheduler] '$id' waiting receive() (mailboxSize=${mailbox.size})")
+            log.info("[Scheduler] waiting receive() (mailboxSize=${mailbox.size})")
         }
 
         @Suppress("UNCHECKED_CAST")
-        SleepingActors.update(id, continuation as Continuation<IMessage>)
+        ActorSystem.onActorWaitingReceive(this, continuation as Continuation<IMessage>)
     }
 
     fun sendTo(actorId: String, payload: IPayload, messageId: String? = null) {
@@ -53,18 +46,17 @@ abstract class Actor(
 
     fun queueMessage(message: IMessage): Boolean {
         val result = mailbox.add(message)
-        log.info("[${message.messageId}] Queue message for '$id' (mailboxSize=${mailbox.size})")
+        log.debug("[${message.messageId}] Queued new message (mailboxSize=${mailbox.size})")
         return result
     }
 
     fun haveMessages() = mailbox.isNotEmpty()
-    fun mailboxSize() = mailbox.size
 
     fun pollMessage(): IMessage? {
         if (mailbox.isEmpty()) return null
 
         val message = mailbox.removeAt(0)
-        log.info("[${message.messageId}] Poll message for '$id' (mailboxSize=${mailbox.size})")
+        log.debug("[${message.messageId}] Poll message (mailboxSize=${mailbox.size})")
         return message
     }
 }
