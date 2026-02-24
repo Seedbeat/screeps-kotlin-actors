@@ -7,8 +7,8 @@ import java.net.http.HttpResponse
 import java.util.*
 
 plugins {
-    kotlin("multiplatform") version "2.2.0"
-    kotlin("plugin.js-plain-objects") version "2.2.0"
+    kotlin("multiplatform") version "2.3.10"
+    kotlin("plugin.js-plain-objects") version "2.3.10"
 }
 
 repositories {
@@ -46,6 +46,7 @@ kotlin {
                 outputFileName = minifiedJsFilename
 
                 mode = KotlinWebpackConfig.Mode.DEVELOPMENT
+//                mode = KotlinWebpackConfig.Mode.PRODUCTION
             }
         }
     }
@@ -54,6 +55,7 @@ kotlin {
         jsMain {
             dependencies {
                 implementation("io.github.exav:screeps-kotlin-types:2.1.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
             }
         }
@@ -85,12 +87,14 @@ tasks.register("release") {
     group = "screeps"
     dependsOn(tasks["optimize"])
 
+    val minifiedJsFile = bundledJsDirectory.file(minifiedJsFilename).asFile
     val optimizedJsFile = bundledJsDirectory.file(optimizedJsFilename).asFile
     val releaseJsFile = releaseDirectory.file(releaseJsFilename).asFile
 
     doLast {
         delete(releaseDirectory)
 
+//        minifiedJsFile.copyTo(releaseJsFile)
         optimizedJsFile.copyTo(releaseJsFile)
     }
 }
