@@ -13,5 +13,9 @@ class Logging(sender: String, minLevel: LogLevel? = null) : ILogging {
         inline operator fun <reified T : Any> invoke(minLevel: LogLevel? = null): Logging {
             return Logging(T::class.simpleName!!, minLevel)
         }
+
+        inline operator fun <reified T : Any> invoke(name: String, minLevel: LogLevel? = null): Logging {
+            return Logging("${T::class.simpleName!!}:$name", minLevel)
+        }
     }
 }
