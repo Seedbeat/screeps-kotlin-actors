@@ -1,5 +1,0 @@
-package actor
-
-object ActorRegistry {
-
-}
