@@ -79,12 +79,14 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
 
         CpuLogger.markStart(selfMarkId)
 
-        if (Root.wasReset && Memory.actorKernelSnapshot != null) {
-            CpuLogger.markStart("restore", selfMarkId)
-            restore(Memory.actorKernelSnapshot!!)
-            CpuLogger.markEnd("restore")
-        } else {
-            log.warn("No kernel snapshot available")
+        if (Root.wasReset) {
+            if (Memory.actorKernelSnapshot != null) {
+                CpuLogger.mark("restore", selfMarkId) {
+                    restore(Memory.actorKernelSnapshot!!)
+                }
+            } else {
+                log.warn("No kernel snapshot available")
+            }
         }
 
         MessageUtils.resetSeed()
