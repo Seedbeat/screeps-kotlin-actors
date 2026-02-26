@@ -65,6 +65,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.DEBUG) {
 
     fun tick(maxSteps: Int = 100, cpuReserve: Double = 3.0) {
 
+        MessageUtils.resetSeed()
         val state = TickState(maxSteps = maxSteps, cpuReserve = cpuReserve)
 
         while (true) {
