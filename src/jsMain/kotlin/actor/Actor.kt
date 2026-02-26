@@ -29,7 +29,7 @@ abstract class Actor(val id: String) : ILogging {
 
     suspend fun <T : IMessage> receive(): T = suspendCancellableCoroutine { continuation ->
         if (mailbox.isNotEmpty()) {
-            log.info("[Scheduler] waiting receive() (mailboxSize=${mailbox.size})")
+            log.debug("[Scheduler] waiting receive() (mailboxSize=${mailbox.size})")
         }
 
         @Suppress("UNCHECKED_CAST")
