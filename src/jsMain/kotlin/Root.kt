@@ -35,8 +35,8 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
             EventScheduler.execute()
         }
 
-        CpuLogger.marks().takeIf { it.isNotEmpty() }?.run {
-            forEach { (_, mark) -> log.info(mark.name().padEnd(40), "CPU:", mark.diff) }
+        CpuLogger.marks().takeIf { it.isNotEmpty() }?.values?.forEach { mark ->
+            log.info(mark.name().padEnd(40), "CPU:", mark.diff)
         }
 
         // try to generate pixel if bucket is filled
