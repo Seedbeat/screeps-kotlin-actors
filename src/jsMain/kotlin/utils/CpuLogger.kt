@@ -67,6 +67,13 @@ object CpuLogger {
         markEnd(id)
     }
 
+    fun <T> markRun(id: String, parentId: String? = null, action: () -> T): T {
+        markStart(id, parentId)
+        val result = action()
+        markEnd(id)
+        return result
+    }
+
     fun marks(): Map<String, Mark> = marks
 
     fun total() = Game.cpu.getUsed()
