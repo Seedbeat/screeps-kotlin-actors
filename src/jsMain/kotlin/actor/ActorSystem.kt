@@ -16,15 +16,15 @@ import kotlin.coroutines.Continuation
 
 object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
 
-    private val selfMark = this::class.simpleName!!
+    private val selfMarkId = this::class.simpleName!!
 
     fun contains(actorId: String) = ActorKernel.contains(actorId)
     fun remove(actorId: String) = ActorKernel.removeActor(actorId)
     fun snapshot(): KernelSnapshot {
-        return CpuLogger.markRun(::snapshot.name, selfMark) { ActorKernel.snapshot() }
+        return ActorKernel.snapshot()
     }
     fun restore(snapshot: KernelSnapshot) {
-        CpuLogger.mark(::restore.name, selfMark) { ActorKernel.restore(snapshot) }
+        ActorKernel.restore(snapshot)
     }
 
     fun <T : Actor> spawn(actorId: String, create: (actorId: String) -> T) {
@@ -77,12 +77,14 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
 
     fun tick(maxSteps: Int = 100, cpuReserve: Double = 3.0) {
 
-        CpuLogger.markStart(selfMark)
+        CpuLogger.markStart(selfMarkId)
 
-        if (Main.wasReset) {
-            Memory.actorKernelSnapshot
-                ?.let(ActorSystem::restore)
-                ?: Main.log.warn("No kernel snapshot available")
+        if (Root.wasReset && Memory.actorKernelSnapshot != null) {
+            CpuLogger.markStart("restore", selfMarkId)
+            restore(Memory.actorKernelSnapshot!!)
+            CpuLogger.markEnd("restore")
+        } else {
+            log.warn("No kernel snapshot available")
         }
 
         MessageUtils.resetSeed()
@@ -112,8 +114,11 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
             log.info("[Tick] Scheduler stop. Status: $state")
         }
 
-        Memory.actorKernelSnapshot = snapshot()
-        CpuLogger.markEnd(selfMark)
+
+        CpuLogger.mark("snapshot", selfMarkId) {
+            Memory.actorKernelSnapshot = snapshot()
+        }
+        CpuLogger.markEnd(selfMarkId)
     }
 
     private fun runTickRound(state: TickState) {
@@ -122,7 +127,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     }
 
     private fun flushOnePendingResponse(state: TickState) {
-        CpuLogger.markStart(::flushOnePendingResponse.name, selfMark)
+        CpuLogger.markStart(::flushOnePendingResponse.name, selfMarkId)
 
         if (ActorKernel.flushOnePendingResponse()) {
             state.increaseFlushedResponses()
@@ -132,7 +137,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     }
 
     private fun deliverMailboxMessagesToReadyActors(state: TickState) {
-        CpuLogger.markStart(::deliverMailboxMessagesToReadyActors.name, selfMark)
+        CpuLogger.markStart(::deliverMailboxMessagesToReadyActors.name, selfMarkId)
 
         while (true) {
             if (state.checkIsStopped())
