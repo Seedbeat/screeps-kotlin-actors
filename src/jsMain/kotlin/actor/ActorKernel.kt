@@ -9,7 +9,7 @@ import utils.log.Logging
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 
-object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.DEBUG) {
+object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     private val actors = mutableMapOf<String, Actor>()
 
     private val readyActorIdsQueue = ArrayDeque<String>()
@@ -30,6 +30,22 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.DEBUG) {
         if (actors.containsKey(actor.id)) return false
         actors[actor.id] = actor
         return true
+    }
+
+    fun snapshot(): KernelSnapshot = KernelSnapshot(
+        actors = actors.values.map { actor ->
+            KernelSnapshot.ActorSnapshot(
+                id = actor.id,
+                type = actor::class.simpleName ?: "UnknownActor"
+            )
+        }
+    )
+
+    fun restore(snapshot: KernelSnapshot) {
+        clearTransientRuntimeState()
+        if (snapshot.actors.isNotEmpty()) {
+            log.warn("[Persistence] Actor snapshots present (${snapshot.actors.size}), but actor rehydration is not implemented yet")
+        }
     }
 
     fun removeActor(actorId: String) {
@@ -111,5 +127,13 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.DEBUG) {
 
         readyActorIdsQueue.addLast(actor.id)
         log.info("[Tick] Enqueue ready actor '${actor.id}' (readyQueueSize=${readyActorIdsQueue.size})")
+    }
+
+    private fun clearTransientRuntimeState() {
+        readyActorIdsQueue.clear()
+        readyActorIdsSet.clear()
+        sleeping.clear()
+        pendingWaiting.clear()
+        pendingScheduled.clear()
     }
 }
