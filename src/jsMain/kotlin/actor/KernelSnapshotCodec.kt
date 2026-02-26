@@ -4,7 +4,7 @@ object KernelSnapshotCodec {
 
     fun toRaw(snapshot: KernelSnapshot): dynamic {
 
-        console.log("toRaw", snapshot)
+//        console.log("toRaw", snapshot)
 
         val root = js("{}")
         root.time = snapshot.time
@@ -35,7 +35,7 @@ object KernelSnapshotCodec {
             }
         )
 
-        console.log("fromRaw", snapshot)
+//        console.log("fromRaw", snapshot)
 
         return snapshot
 
