@@ -1,4 +1,4 @@
-package actor.type
+package actors
 
 import actor.message.IRequest
 
