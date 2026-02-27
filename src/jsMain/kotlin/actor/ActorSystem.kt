@@ -61,6 +61,11 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     }
 
     suspend fun <T> request(from: String, to: String, payload: IRequest): T {
+
+        if (!contains(to)) {
+            throw IllegalArgumentException("Trying to request data from non existing actor: $to")
+        }
+
         val messageId = MessageUtils.generateMessageId()
 
         @Suppress("UNCHECKED_CAST")
