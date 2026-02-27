@@ -11,7 +11,6 @@ import kotlin.coroutines.resume
 
 object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     private val actors = mutableMapOf<String, Actor>()
-
     private val readyActorIdsQueue = ArrayDeque<String>()
     private val readyActorIdsSet = mutableSetOf<String>()
 
@@ -19,6 +18,8 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
 
     private val pendingWaiting = mutableMapOf<String, Continuation<Any?>>()
     private val pendingScheduled = ArrayDeque<() -> Unit>()
+
+    fun actors(): Map<String, Actor> = actors
 
     fun contains(actorId: String) = actors.containsKey(actorId)
 

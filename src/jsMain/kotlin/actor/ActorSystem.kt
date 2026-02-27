@@ -1,5 +1,6 @@
 package actor
 
+import Root
 import actor.enums.QueueMessageResult
 import actor.message.IMessage
 import actor.message.IPayload
@@ -15,17 +16,16 @@ import utils.log.Logging
 import kotlin.coroutines.Continuation
 
 object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
-
     private val selfMarkId = this::class.simpleName!!
+
+
+    fun actors(): Map<String, Actor> = ActorKernel.actors()
 
     fun contains(actorId: String) = ActorKernel.contains(actorId)
     fun remove(actorId: String) = ActorKernel.removeActor(actorId)
-    fun snapshot(): KernelSnapshot {
-        return ActorKernel.snapshot()
-    }
-    fun restore(snapshot: KernelSnapshot) {
-        ActorKernel.restore(snapshot)
-    }
+    fun snapshot(): KernelSnapshot = ActorKernel.snapshot()
+    fun restore(snapshot: KernelSnapshot) { ActorKernel.restore(snapshot) }
+
 
     fun <T : Actor> spawn(actorId: String, create: (actorId: String) -> T) {
         if (contains(actorId)) {
