@@ -1,3 +1,4 @@
+import actor.ActorSystem
 import room.RoomContext
 import scheduler.EventScheduler
 import screeps.api.Game
@@ -9,9 +10,10 @@ import utils.CpuLogger
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
-import kotlin.collections.set
 
 object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
+
+    var wasReset = true
 
     val localTime: Int by lazyPerTick { Game.time % 100 }
 
@@ -21,9 +23,21 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
     fun room(name: String): RoomContext = roomContext[name]!!
 
     fun gameLoop() {
+        if (wasReset)
+            log.warn("RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET")
+
+        preLoop()
+        loop()
+        postLoop()
+        wasReset = false
+    }
+
+    fun preLoop() {
         log.info("=============================== Tick: ${Game.time} ===============================")
         CpuLogger.init()
+    }
 
+    fun loop() {
         CpuLogger.mark("ContextCreation") {
             for ((name, room) in Game.rooms) {
                 if (!roomContext.containsKey(name))
@@ -35,6 +49,10 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
             EventScheduler.execute()
         }
 
+        ActorSystem.tick()
+    }
+
+    fun postLoop() {
         CpuLogger.marks().takeIf { it.isNotEmpty() }?.values?.forEach { mark ->
             log.info(mark.name().padEnd(40), "CPU:", mark.diff)
         }
@@ -45,4 +63,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
         log.info("=============================== CPU: ${CpuLogger.total()} ===============================")
     }
+
+    @Suppress("NOTHING_TO_INLINE", "unused")
+    inline fun breakpoint() = js("debugger;")
 }
