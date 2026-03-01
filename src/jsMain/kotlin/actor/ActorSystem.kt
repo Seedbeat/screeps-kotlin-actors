@@ -56,7 +56,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     }
 
     fun send(toActorId: String, fromActorId: String, payload: IPayload, messageId: String? = null) {
-        val id = messageId ?: MessageUtils.generateMessageId()
+        val id = messageId ?: MessageId.next()
         send(toActorId, Message(id, fromActorId, payload))
     }
 
@@ -66,7 +66,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
             throw IllegalArgumentException("Trying to request data from non existing actor: $to")
         }
 
-        val messageId = MessageUtils.generateMessageId()
+        val messageId = MessageId.next()
 
         @Suppress("UNCHECKED_CAST")
         return suspendCancellableCoroutine { cont ->
@@ -94,7 +94,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
             }
         }
 
-        MessageUtils.resetSeed()
+        MessageId.resetSeed()
         val state = TickState(maxSteps = maxSteps, cpuReserve = cpuReserve)
 
         while (true) {
