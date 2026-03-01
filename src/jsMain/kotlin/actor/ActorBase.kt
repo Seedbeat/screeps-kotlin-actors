@@ -34,7 +34,10 @@ abstract class ActorBase<CommandType : ICommand, RequestType : IRequest, Respons
             processRequest((msg as RequestType))
         }
 
-        else -> null
+        else -> {
+            log.error("Not implemented for $msg")
+            throw NotImplementedError()
+        }
     }
 
     abstract suspend fun processCommand(msg: CommandType)
