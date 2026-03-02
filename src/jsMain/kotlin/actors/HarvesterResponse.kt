@@ -2,6 +2,8 @@ package actors
 
 import actor.message.IResponse
 
-sealed class HarvesterResponse<T> : IResponse<T>
+sealed class HarvesterResponse<T> : IResponse<T> {
 
-data class HarvesterGetEnergyResponse(override val result: Int) : HarvesterResponse<Int>()
+    data class EnergyResponse(override val result: Int) : HarvesterResponse<Int>()
+}
+
