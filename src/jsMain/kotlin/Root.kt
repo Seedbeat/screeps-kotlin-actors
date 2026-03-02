@@ -1,4 +1,7 @@
 import actor.ActorSystem
+import actors.ActorConstants.SYSTEM
+import actors.SystemActor
+import actors.SystemCommand
 import room.RoomContext
 import scheduler.EventScheduler
 import screeps.api.Game
@@ -24,12 +27,18 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
     fun gameLoop() {
         if (wasReset)
-            log.warn("RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET")
+            onReset()
 
         preLoop()
         loop()
         postLoop()
         wasReset = false
+    }
+
+    fun onReset() {
+        log.warn("RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET")
+        ActorSystem.spawn(SYSTEM, ::SystemActor)
+        ActorSystem.send(SYSTEM, Root::class.simpleName!!, SystemCommand.Bootstrap)
     }
 
     fun preLoop() {
@@ -49,6 +58,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
             EventScheduler.execute()
         }
 
+        ActorSystem.send(SYSTEM, Root::class.simpleName!!, SystemCommand.OnTick(Game.time))
         ActorSystem.tick()
     }
 
