@@ -3,7 +3,7 @@ package utils
 import screeps.api.Game
 
 object CpuLogger {
-    private val isEnabled = false
+    private val isEnabled = true
 
     private val filter: HashSet<String> = hashSetOf(
 //        CreepExecutor::class.simpleName

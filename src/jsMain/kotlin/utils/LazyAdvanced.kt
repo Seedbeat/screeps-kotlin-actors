@@ -1,9 +1,10 @@
 package utils
 
+import Root
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-private class TickLazyAdvanced<in P : Any?, T : Any>(
+private class TickLazyAdvanced<in P, T : Any>(
     val tickNth: Int,
     val compute: P.() -> T
 ) : ReadOnlyProperty<P, T> {
@@ -26,6 +27,6 @@ private class TickLazyAdvanced<in P : Any?, T : Any>(
     }
 }
 
-fun <P : Any?, T : Any> lazyPerNthTick(n: Int, compute: P.() -> T): ReadOnlyProperty<P, T> {
+fun <P, T : Any> lazyPerNthTick(n: Int, compute: P.() -> T): ReadOnlyProperty<P, T> {
     return TickLazyAdvanced(n, compute)
 }
