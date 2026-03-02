@@ -3,10 +3,11 @@ package actor
 import actor.enums.QueueMessageResult
 import actor.message.IMessage
 import actor.message.IResponse
+import kotlinx.coroutines.CancellableContinuation
+import screeps.api.Game
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
-import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 
 object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
@@ -14,10 +15,26 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     private val readyActorIdsQueue = ArrayDeque<String>()
     private val readyActorIdsSet = mutableSetOf<String>()
 
-    private val sleeping = mutableMapOf<String, Continuation<IMessage>>()
+    private val sleeping = mutableMapOf<String, CancellableContinuation<IMessage>>()
 
-    private val pendingWaiting = mutableMapOf<String, Continuation<Any?>>()
-    private val pendingScheduled = ArrayDeque<() -> Unit>()
+    private val pendingWaiting = mutableMapOf<String, PendingResponseWaiter>()
+    private val scheduledContinuations = ArrayDeque<ScheduledContinuation>()
+    private val waitingNextTick = mutableMapOf<String, TickWaiter>()
+
+    private data class TickWaiter(
+        val wakeTick: Int,
+        val continuation: CancellableContinuation<Unit>
+    )
+
+    private data class PendingResponseWaiter(
+        val actorId: String,
+        val continuation: CancellableContinuation<Any?>
+    )
+
+    private data class ScheduledContinuation(
+        val actorId: String?,
+        val action: () -> Unit
+    )
 
     fun actors(): Map<String, Actor> = actors
 
@@ -31,6 +48,18 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         if (actors.containsKey(actor.id)) return false
         actors[actor.id] = actor
         return true
+    }
+
+    fun removeActor(actorId: String) {
+        readyActorIdsSet.remove(actorId)
+        sleeping.remove(actorId)
+        waitingNextTick.remove(actorId)
+        pendingWaiting
+            .filterValues { it.actorId == actorId }
+            .keys
+            .toList()
+            .forEach { messageId -> pendingWaiting.remove(messageId) }
+        actors.remove(actorId)
     }
 
     fun snapshot(): KernelSnapshot = KernelSnapshot(
@@ -49,12 +78,6 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         }
     }
 
-    fun removeActor(actorId: String) {
-        readyActorIdsSet.remove(actorId)
-        sleeping.remove(actorId)
-        actors.remove(actorId)
-    }
-
     fun queueActorMessage(actorId: String, msg: IMessage): QueueMessageResult {
         if (trySchedulePendingResponse(msg))
             return QueueMessageResult.SCHEDULED_RESPONSE
@@ -68,14 +91,54 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         return QueueMessageResult.QUEUED_TO_MAILBOX
     }
 
-    fun onActorWaitingReceive(actor: Actor, continuation: Continuation<IMessage>) {
+    fun onActorWaitingReceive(actor: Actor, continuation: CancellableContinuation<IMessage>) {
         sleeping[actor.id] = continuation
         enqueueReadyActor(actor)
     }
 
-    fun putPendingResponse(messageId: String, continuation: Continuation<Any?>) {
+    fun removeActorReceiveWaiter(actorId: String) {
+        sleeping.remove(actorId)
+    }
+
+    fun onActorWaitingNextTick(actor: Actor, ticks: Int, continuation: CancellableContinuation<Unit>) {
+        waitingNextTick[actor.id] = TickWaiter(
+            wakeTick = Game.time + ticks,
+            continuation = continuation
+        )
+    }
+
+    fun removeActorNextTickWaiter(actorId: String) {
+        waitingNextTick.remove(actorId)
+    }
+
+    fun onActorYield(actor: Actor, continuation: CancellableContinuation<Unit>) {
+        log.info("[Tick] Schedule yield continuation for actor '${actor.id}' (scheduled=${scheduledContinuations.size + 1})")
+        scheduleContinuation(actor.id) {
+            if (continuation.isActive)
+                continuation.resume(Unit)
+        }
+    }
+
+    fun wakeActorsReadyByTick(now: Int = Game.time): Int {
+        val ready = waitingNextTick
+            .filterValues { it.wakeTick <= now }
+            .toList()
+
+        ready.forEach { (actorId, waiter) ->
+            waitingNextTick.remove(actorId)
+            log.info("[Tick] Schedule wake-up continuation for actor '$actorId' at tick $now")
+            scheduleContinuation(actorId) {
+                if (waiter.continuation.isActive)
+                    waiter.continuation.resume(Unit)
+            }
+        }
+
+        return ready.size
+    }
+
+    fun putPendingResponse(messageId: String, actorId: String, continuation: CancellableContinuation<Any?>) {
         log.info("[${messageId}] Set request continuation (waiting=${pendingWaiting.size + 1})")
-        pendingWaiting[messageId] = continuation
+        pendingWaiting[messageId] = PendingResponseWaiter(actorId, continuation)
     }
 
     fun removePendingResponse(messageId: String) {
@@ -83,13 +146,21 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         log.info("[${messageId}] Remove request continuation (waiting=${pendingWaiting.size})")
     }
 
-    fun flushOnePendingResponse(): Boolean {
-        if (pendingScheduled.isEmpty()) return false
+    fun flushOneScheduledContinuation(): Boolean {
+        while (scheduledContinuations.isNotEmpty()) {
+            log.info("[Tick] Flush scheduled continuation (scheduled=${scheduledContinuations.size - 1})")
+            val scheduled = scheduledContinuations.removeFirst()
 
-        log.info("[Tick] Flush scheduled response continuation (scheduled=${pendingScheduled.size - 1})")
-        val action = pendingScheduled.removeFirst()
-        action.invoke()
-        return true
+            if (scheduled.actorId != null && !actors.containsKey(scheduled.actorId)) {
+                log.info("[Tick] Drop scheduled continuation for removed actor '${scheduled.actorId}'")
+                continue
+            }
+
+            scheduled.action.invoke()
+            return true
+        }
+
+        return false
     }
 
     fun deliverOneReadyActorMessage(): Boolean {
@@ -103,6 +174,10 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
 
             log.info("[${message.messageId}] [Tick] Deliver mailbox message to sleeping actor '$actorId'")
             sleeping.remove(actorId)
+            if (!continuation.isActive) {
+                log.info("[${message.messageId}] Drop mailbox message for inactive continuation of actor '$actorId'")
+                continue
+            }
             continuation.resume(message)
             return true
         }
@@ -112,13 +187,18 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
 
     private fun trySchedulePendingResponse(msg: IMessage): Boolean {
         val response = msg.payload as? IResponse<*> ?: return false
-        val continuation = pendingWaiting.remove(msg.messageId) ?: return false
+        val waiter = pendingWaiting.remove(msg.messageId) ?: return false
 
-        log.info("[${msg.messageId}] Schedule response continuation (scheduled=${pendingScheduled.size + 1}, waiting=${pendingWaiting.size})")
-        pendingScheduled.addLast {
-            continuation.resumeWith(Result.success(response.result))
+        log.info("[${msg.messageId}] Schedule response continuation (scheduled=${scheduledContinuations.size + 1}, waiting=${pendingWaiting.size})")
+        scheduleContinuation(waiter.actorId) {
+            if (waiter.continuation.isActive)
+                waiter.continuation.resumeWith(Result.success(response.result))
         }
         return true
+    }
+
+    private fun scheduleContinuation(actorId: String? = null, action: () -> Unit) {
+        scheduledContinuations.addLast(ScheduledContinuation(actorId, action))
     }
 
     private fun enqueueReadyActor(actor: Actor) {
@@ -135,6 +215,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         readyActorIdsSet.clear()
         sleeping.clear()
         pendingWaiting.clear()
-        pendingScheduled.clear()
+        scheduledContinuations.clear()
+        waitingNextTick.clear()
     }
 }

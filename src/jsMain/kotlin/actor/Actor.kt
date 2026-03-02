@@ -3,6 +3,7 @@ package actor
 import actor.message.IMessage
 import actor.message.IPayload
 import actor.message.IRequest
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import utils.log.ILogging
 import kotlin.coroutines.Continuation
@@ -33,7 +34,32 @@ abstract class Actor(val id: String) : ILogging {
         }
 
         @Suppress("UNCHECKED_CAST")
-        ActorSystem.onActorWaitingReceive(this, continuation as Continuation<IMessage>)
+        ActorSystem.onActorWaitingReceive(this, continuation as CancellableContinuation<IMessage>)
+        continuation.invokeOnCancellation {
+            ActorSystem.removeActorReceiveWaiter(id)
+        }
+    }
+
+    protected suspend fun nextTick(ticks: Int = 1) {
+        if (ticks <= 0) return
+
+        suspendCancellableCoroutine<Unit> { continuation ->
+            ActorSystem.onActorWaitingNextTick(this, ticks, continuation)
+            continuation.invokeOnCancellation {
+                ActorSystem.removeActorNextTickWaiter(id)
+            }
+        }
+    }
+
+    protected suspend fun yieldNow() {
+        suspendCancellableCoroutine<Unit> { continuation ->
+            ActorSystem.onActorYield(this, continuation)
+        }
+    }
+
+    protected suspend fun checkpoint() {
+        if (!ActorSystem.shouldYieldAtCheckpoint()) return
+        nextTick(1)
     }
 
     fun sendTo(actorId: String, payload: IPayload, messageId: String? = null) {

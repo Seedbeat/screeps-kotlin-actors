@@ -8,21 +8,27 @@ data class TickState(
     val cpuReserve: Double,
     var rounds: Int = 0,
     var steps: Int = 0,
-    var flushedResponses: Int = 0,
+    var flushedContinuations: Int = 0,
     var deliveredMessages: Int = 0,
+    var scheduledWakeUps: Int = 0,
     var stopReason: StopReasonType = StopReasonType.NONE
 ) {
-    fun hasWork() = flushedResponses > 0 || deliveredMessages > 0
+    fun hasWork() = flushedContinuations > 0 || deliveredMessages > 0 || scheduledWakeUps > 0
     fun isStopped() = stopReason != StopReasonType.NONE
 
-    fun increaseFlushedResponses() {
-        flushedResponses++
+    fun increaseFlushedContinuations() {
+        flushedContinuations++
         steps++
     }
 
     fun increaseDeliveredMessages() {
         deliveredMessages++
         steps++
+    }
+
+    fun increaseScheduledWakeUps(count: Int) {
+        if (count <= 0) return
+        scheduledWakeUps += count
     }
 
     fun checkIsStopped(): Boolean {
@@ -37,6 +43,11 @@ data class TickState(
         }
 
         return false
+    }
+
+    fun shouldYieldSoon(extraReserve: Double = 0.5): Boolean {
+        if (cpuReserve <= 0.0) return false
+        return (Game.cpu.limit - Game.cpu.getUsed()) <= (cpuReserve + extraReserve)
     }
 
     private fun isCpuBudgetExceeded(cpuReserve: Double): Boolean {
