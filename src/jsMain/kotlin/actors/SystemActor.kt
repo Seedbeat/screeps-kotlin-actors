@@ -32,7 +32,7 @@ class SystemActor(id: String) : Actor(id), ILogging by Logging<SystemActor>(LogL
 
             try {
                 when (val payload = msg.payload) {
-                    is SystemCommand -> processCommand(payload)
+                    is Lifecycle -> onLifecycle(payload)
                     else -> log.warn("Unsupported payload for SystemActor: $payload")
                 }
             } catch (exception: Exception) {
@@ -41,9 +41,9 @@ class SystemActor(id: String) : Actor(id), ILogging by Logging<SystemActor>(LogL
         }
     }
 
-    private suspend fun processCommand(msg: SystemCommand) = when (msg) {
-        is SystemCommand.OnTick -> onTick(msg.time)
-        is SystemCommand.Bootstrap -> onBootstrap()
+    private suspend fun onLifecycle(msg: Lifecycle) = when (msg) {
+        is Lifecycle.Bootstrap -> onBootstrap()
+        is Lifecycle.Tick -> onTick(msg.time)
     }
 
     private suspend fun onTick(time: Int) {

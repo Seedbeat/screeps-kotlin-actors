@@ -33,6 +33,11 @@ abstract class ActorBase<
     }
 
     suspend fun onReceive(msg: IPayload): ResponseType? = when (msg) {
+        is Lifecycle -> {
+            processLifecycle(msg)
+            null
+        }
+
         is ICommand -> {
             @Suppress("UNCHECKED_CAST")
             processCommand((msg as CommandType))
@@ -50,6 +55,7 @@ abstract class ActorBase<
         }
     }
 
+    open suspend fun processLifecycle(msg: Lifecycle) = Unit
     abstract suspend fun processCommand(msg: CommandType)
     abstract suspend fun processRequest(msg: RequestType): ResponseType
 }
