@@ -4,6 +4,7 @@ import actors.RoomRequest.StatusRequest
 import actors.RoomResponse.StatusResponse
 import actors.base.GameRoomBinding
 import actors.base.IActorBinding
+import actors.base.Lifecycle
 import screeps.api.Room
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -15,11 +16,12 @@ class RoomActor(
     IActorBinding<Room> by GameRoomBinding(id),
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
 
-    override suspend fun processCommand(msg: RoomCommand) = when (msg) {
-        is RoomCommand.OnTick -> {
-            planRoomIntents(msg.time)
-        }
+    override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
+        is Lifecycle.Bootstrap -> {} // TODO
+        is Lifecycle.Tick -> planRoomIntents(msg.time)
+    }
 
+    override suspend fun processCommand(msg: RoomCommand) = when (msg) {
         is RoomCommand.Simple -> {
             log.info(msg)
         }
@@ -28,9 +30,7 @@ class RoomActor(
     }
 
     override suspend fun processRequest(msg: RoomRequest): RoomResponse<*> = when (msg) {
-        StatusRequest -> {
-            StatusResponse(result = "room=$id")
-        }
+        StatusRequest -> StatusResponse(result = "room=$id")
     }
 
     private fun planRoomIntents(time: Int) {
