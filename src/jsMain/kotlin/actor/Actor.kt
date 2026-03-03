@@ -43,7 +43,7 @@ abstract class Actor(val id: String) : ILogging {
     protected suspend fun nextTick(ticks: Int = 1) {
         if (ticks <= 0) return
 
-        suspendCancellableCoroutine<Unit> { continuation ->
+        suspendCancellableCoroutine { continuation ->
             ActorSystem.onActorWaitingNextTick(this, ticks, continuation)
             continuation.invokeOnCancellation {
                 ActorSystem.removeActorNextTickWaiter(id)
@@ -52,7 +52,7 @@ abstract class Actor(val id: String) : ILogging {
     }
 
     protected suspend fun yieldNow() {
-        suspendCancellableCoroutine<Unit> { continuation ->
+        suspendCancellableCoroutine { continuation ->
             ActorSystem.onActorYield(this, continuation)
         }
     }
@@ -67,7 +67,7 @@ abstract class Actor(val id: String) : ILogging {
     }
 
     suspend fun <T> requestFrom(actorId: String, payload: IRequest): T {
-        return ActorSystem.request(id, actorId, payload)
+        return ActorSystem.request(actorId, id, payload)
     }
 
     fun queueMessage(message: IMessage): Boolean {

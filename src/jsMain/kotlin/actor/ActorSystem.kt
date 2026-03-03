@@ -61,19 +61,19 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         send(toActorId, Message(id, fromActorId, payload))
     }
 
-    suspend fun <T> request(from: String, to: String, payload: IRequest): T {
+    suspend fun <T> request(toActorId: String, fromActorId: String, payload: IRequest): T {
 
-        if (!contains(to)) {
-            throw IllegalArgumentException("Trying to request data from non existing actor: $to")
+        if (!contains(toActorId)) {
+            throw IllegalArgumentException("Trying to request data from non existing actor: $toActorId")
         }
 
         val messageId = MessageId.next()
 
         @Suppress("UNCHECKED_CAST")
         return suspendCancellableCoroutine { cont ->
-            ActorKernel.putPendingResponse(messageId, from, cont as CancellableContinuation<Any?>)
+            ActorKernel.putPendingResponse(messageId, fromActorId, cont as CancellableContinuation<Any?>)
             cont.invokeOnCancellation { ActorKernel.removePendingResponse(messageId) }
-            send(to, Message(messageId, from, payload))
+            send(toActorId, Message(messageId, fromActorId, payload))
         }
     }
 
