@@ -11,6 +11,20 @@ import utils.log.Logging
 
 class SystemActor(id: String) : Actor(id), ILogging by Logging<SystemActor>(LogLevel.INFO) {
 
+    companion object {
+        const val SYSTEM = "SYSTEM"
+
+        fun init() {
+            ActorSystem.spawn(SYSTEM, ::SystemActor)
+            ActorSystem.send(SYSTEM, SYSTEM, Lifecycle.Bootstrap)
+        }
+
+        fun tick() {
+            ActorSystem.send(SYSTEM, SYSTEM, Lifecycle.Tick(Game.time))
+            ActorSystem.tick()
+        }
+    }
+
     override suspend fun run() {
         while (true) {
             val msg = receive<IMessage>()
