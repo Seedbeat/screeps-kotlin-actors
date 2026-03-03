@@ -3,6 +3,7 @@ package actors
 import actor.Actor
 import actor.message.*
 import actors.base.IActorBinding
+import actors.base.Lifecycle
 
 abstract class ActorBase<
         ObjectType,
@@ -18,6 +19,9 @@ abstract class ActorBase<
             log.debug("[${msg.messageId}]: received new message from '${msg.from}'")
 
             try {
+                if (!isBound()) {
+                    return
+                }
                 onReceive(msg.payload)?.let { response ->
                     log.debug("[${msg.messageId}]: send response to '${msg.from}'")
                     sendTo(msg.from, response, msg.messageId)

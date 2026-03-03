@@ -9,10 +9,11 @@ import utils.lazyPerTickNullable
 interface IActorBinding<T> {
     val selfOrNull: T?
     val self: T get() = selfOrNull ?: error("Actor is not bound")
+    fun isBound() = selfOrNull != null
 }
 
 object NoBinding : IActorBinding<Unit> {
-    override val selfOrNull: Unit? = null
+    override val selfOrNull: Unit = Unit
 }
 
 class GameObjectBinding<T : Identifiable>(id: String) : IActorBinding<T> {
