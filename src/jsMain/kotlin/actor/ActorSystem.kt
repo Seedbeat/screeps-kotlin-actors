@@ -27,10 +27,10 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     fun restore(snapshot: KernelSnapshot) { ActorKernel.restore(snapshot) }
 
 
-    fun <T : Actor> spawn(actorId: String, create: (actorId: String) -> T) {
+    fun <T : Actor> spawn(actorId: String, create: (actorId: String) -> T): String? {
         if (contains(actorId)) {
             log.warn("Already spawned actor $actorId, return")
-            return
+            return null
         }
 
         log.info("Spawn actor: $actorId")
@@ -38,6 +38,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         val actor = create(actorId)
         ActorKernel.registerActor(actor)
         actor.start()
+        return actor.id
     }
 
     fun send(actorId: String, msg: IMessage) {
