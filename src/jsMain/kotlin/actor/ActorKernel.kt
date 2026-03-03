@@ -57,7 +57,6 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         pendingWaiting
             .filterValues { it.actorId == actorId }
             .keys
-            .toList()
             .forEach { messageId -> pendingWaiting.remove(messageId) }
         actors.remove(actorId)
     }
