@@ -121,7 +121,6 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     fun wakeActorsReadyByTick(now: Int = Game.time): Int {
         val ready = waitingNextTick
             .filterValues { it.wakeTick <= now }
-            .toList()
 
         ready.forEach { (actorId, waiter) ->
             waitingNextTick.remove(actorId)
