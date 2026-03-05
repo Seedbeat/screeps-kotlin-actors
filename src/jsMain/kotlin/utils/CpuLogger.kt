@@ -1,6 +1,7 @@
 package utils
 
 import screeps.api.Game
+import kotlin.reflect.KFunction
 
 object CpuLogger {
     private val isEnabled = true
@@ -37,34 +38,53 @@ object CpuLogger {
     }
 
     private val marks = mutableMapOf<String, Mark>()
+    private val activeMarks = ArrayDeque<String>()
 
     fun init() {
         marks.clear()
+        activeMarks.clear()
     }
 
-    fun <T> mark(id: String, parentId: String? = null, action: () -> T): T {
+    private fun currentMarkId(): String? = activeMarks.lastOrNull()
+
+    fun <T> mark(id: String, parentId: String? = currentMarkId(), action: () -> T): T {
         markStart(id, parentId)
-        val res = action()
-        markEnd(id)
-        return res
+        return try {
+            action()
+        } finally {
+            markEnd(id)
+        }
     }
 
-    fun markStart(id: String, parentId: String? = null) {
+    fun <T> mark(id: KFunction<*>, parentId: KFunction<*>? = null, action: () -> T): T =
+        mark(id.name, parentId?.name ?: currentMarkId(), action)
+
+    fun markStart(id: String, parentId: String? = currentMarkId()) {
         if (!isEnabled || (filter.isNotEmpty() && !filter.contains(id))) return
 
         marks[id] = Mark(id, parentId)
+        activeMarks.addLast(id)
+    }
+
+    fun markStart(id: KFunction<*>, parentId: KFunction<*>? = null) {
+        markStart(id.name, parentId?.name ?: currentMarkId())
     }
 
     fun markEnd(id: String) {
         if (!isEnabled) return
 
         marks[id]?.calcDiff()
+        if (activeMarks.isNotEmpty()) {
+            if (activeMarks.last() == id) {
+                activeMarks.removeLast()
+            } else {
+                activeMarks.remove(id)
+            }
+        }
     }
 
-    fun mark(id: String, parentId: String? = null, action: () -> Unit) {
-        markStart(id, parentId)
-        action()
-        markEnd(id)
+    fun markEnd(id: KFunction<*>) {
+        markEnd(id.name)
     }
 
     fun marks(): Map<String, Mark> = marks
