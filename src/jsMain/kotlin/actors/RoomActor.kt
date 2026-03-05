@@ -17,8 +17,13 @@ class RoomActor(
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
 
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
-        is Lifecycle.Bootstrap -> {} // TODO
-        is Lifecycle.Tick -> planRoomIntents(msg.time)
+        is Lifecycle.Bootstrap -> {
+            log.info("Bootstrapping room $id")
+        }
+        is Lifecycle.Tick -> {
+            log.info("Room $id tick")
+            planRoomIntents(msg.time)
+        }
     }
 
     override suspend fun processCommand(msg: RoomCommand) = when (msg) {
