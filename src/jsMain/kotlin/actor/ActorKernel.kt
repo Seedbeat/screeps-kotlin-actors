@@ -144,7 +144,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         log.info("[${messageId}] Remove request continuation (waiting=${pendingWaiting.size})")
     }
 
-    fun flushOneScheduledContinuation(): Boolean {
+    fun flushScheduledContinuations(): Boolean {
         while (scheduledContinuations.isNotEmpty()) {
             log.info("[Tick] Flush scheduled continuation (scheduled=${scheduledContinuations.size - 1})")
             val scheduled = scheduledContinuations.removeFirst()

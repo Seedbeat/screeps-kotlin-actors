@@ -11,7 +11,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import memory.actorKernelSnapshot
 import screeps.api.Memory
 import utils.CpuLogger
-import utils.CpuLogger.mark
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -107,11 +106,11 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
 
     fun tick(maxSteps: Int = 100, cpuReserve: Double = 3.0) {
 
-        CpuLogger.markStart(selfMarkId)
+        CpuLogger.markStart(selfMarkId, parentId = null)
 
         if (Root.wasReset) {
             if (Memory.actorKernelSnapshot != null) {
-                mark(::restore) {
+                CpuLogger.mark(::restore) {
                     restore(Memory.actorKernelSnapshot!!)
                 }
             } else {
@@ -150,7 +149,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
             }
 
 
-            mark(::snapshot) {
+            CpuLogger.mark(::snapshot) {
                 Memory.actorKernelSnapshot = snapshot()
             }
         } finally {
@@ -159,23 +158,23 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         }
     }
 
-    private fun runTickRound(state: TickState): Unit = mark(::runTickRound) {
+    private fun runTickRound(state: TickState): Unit = CpuLogger.mark(::runTickRound) {
         wakeUpScheduledActors(state)
-        flushOneScheduledContinuation(state)
+        flushScheduledContinuations(state)
         deliverMailboxMessages(state)
     }
 
-    private fun wakeUpScheduledActors(state: TickState): Unit = mark(::wakeUpScheduledActors) {
+    private fun wakeUpScheduledActors(state: TickState): Unit = CpuLogger.mark(::wakeUpScheduledActors) {
         state.increaseScheduledWakeUps(ActorKernel.wakeActorsReadyByTick())
     }
 
-    private fun flushOneScheduledContinuation(state: TickState): Unit = mark(::flushOneScheduledContinuation) {
-        if (ActorKernel.flushOneScheduledContinuation()) {
+    private fun flushScheduledContinuations(state: TickState): Unit = CpuLogger.mark(::flushScheduledContinuations) {
+        if (ActorKernel.flushScheduledContinuations()) {
             state.increaseFlushedContinuations()
         }
     }
 
-    private fun deliverMailboxMessages(state: TickState): Unit = mark(::deliverMailboxMessages) {
+    private fun deliverMailboxMessages(state: TickState): Unit = CpuLogger.mark(::deliverMailboxMessages) {
         while (true) {
             if (state.checkIsStopped())
                 break
