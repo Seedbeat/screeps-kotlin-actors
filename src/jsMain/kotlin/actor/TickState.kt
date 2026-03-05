@@ -27,7 +27,6 @@ data class TickState(
     }
 
     fun increaseScheduledWakeUps(count: Int) {
-        if (count <= 0) return
         scheduledWakeUps += count
     }
 
