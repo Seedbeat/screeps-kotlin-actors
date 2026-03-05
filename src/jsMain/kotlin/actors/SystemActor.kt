@@ -3,7 +3,7 @@ package actors
 import actor.Actor
 import actor.ActorSystem
 import actor.message.IMessage
-import actor.message.IPayload
+import actors.base.IChildManager
 import actors.base.Lifecycle
 import screeps.api.Game
 import screeps.api.values
@@ -12,7 +12,9 @@ import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
 
-class SystemActor(id: String) : Actor(id), ILogging by Logging<SystemActor>(LogLevel.INFO) {
+class SystemActor(id: String) : Actor(id),
+    IChildManager<RoomActor>,
+    ILogging by Logging<SystemActor>(LogLevel.INFO) {
 
     companion object {
         const val SYSTEM = "SYSTEM"
@@ -44,44 +46,29 @@ class SystemActor(id: String) : Actor(id), ILogging by Logging<SystemActor>(LogL
         }
     }
 
-    private val ownedRoomsNames by lazyPerTick {
-        Game.rooms.values.filter { room -> room.controller?.my == true }.map { room -> room.name }.toSet()
-    }
-
     private suspend fun onLifecycle(msg: Lifecycle) = when (msg) {
-        is Lifecycle.Bootstrap -> onBootstrap()
         is Lifecycle.Tick -> onTick(msg)
+        is Lifecycle.Bootstrap -> onBootstrap()
     }
 
     private suspend fun onTick(msg: Lifecycle.Tick) {
         log.info("System tick: ${msg.time}")
 
-        syncGameObjectsWithActors()
-        broadcast(msg)
+        syncOwnedChildren(::RoomActor)
+        broadcastToChildren(msg)
     }
 
     private suspend fun onBootstrap() {
         log.info("System bootstrap")
 
-        syncGameObjectsWithActors()
-        broadcast(Lifecycle.Bootstrap)
+        syncOwnedChildren(::RoomActor)
+        broadcastToChildren(Lifecycle.Bootstrap)
     }
 
-    fun syncGameObjectsWithActors() {
-
-        val roomActorsIds = ActorSystem.actors().values
-            .filterIsInstance<RoomActor>()
-            .map { it.id }
-            .toSet()
-
-        val toCreate = ownedRoomsNames - roomActorsIds
-        val toRemove = roomActorsIds - ownedRoomsNames
-
-        toCreate.forEach { actorId -> ActorSystem.spawn(actorId, ::RoomActor) }
-        toRemove.forEach { actorId -> ActorSystem.remove(actorId) }
+    override val targetChildrenIds by lazyPerTick {
+        Game.rooms.values.filter { room -> room.controller?.my == true }.map { room -> room.name }.toSet()
     }
 
-    private fun broadcast(payload: IPayload) {
-        ownedRoomsNames.forEach { actorId -> sendTo(actorId, payload) }
-    }
+    override fun filterRegisteredChildren(actors: Collection<Actor>) =
+        actors.filterIsInstance<RoomActor>()
 }
