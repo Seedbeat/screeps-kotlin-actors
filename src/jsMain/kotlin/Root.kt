@@ -58,9 +58,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
     }
 
     fun postLoop() {
-        CpuLogger.marks().takeIf { it.isNotEmpty() }?.values?.forEach { mark ->
-            log.info(mark.name().padEnd(40), "CPU:", mark.diff)
-        }
+        CpuLogger.print()
 
         // try to generate pixel if bucket is filled
         if (Game.cpu.bucket >= 10000)

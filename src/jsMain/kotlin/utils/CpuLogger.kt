@@ -1,10 +1,11 @@
 package utils
 
+import Root
 import screeps.api.Game
 import kotlin.reflect.KFunction
 
 object CpuLogger {
-    private val isEnabled = true
+    private const val isEnabled = true
 
     private val filter: HashSet<String> = hashSetOf(
 //        CreepExecutor::class.simpleName
@@ -12,29 +13,21 @@ object CpuLogger {
 
     data class Mark(
         val id: String,
-        val parentId: String? = null
+        val parentId: String? = null,
+        val depth: Int = 0
     ) {
-        fun calcDiff() {
-            diff = Game.cpu.getUsed() - initial
+        fun calcDiff(now: Double = Game.cpu.getUsed()) {
+            diff = now - initial
         }
 
         val initial: Double = Game.cpu.getUsed()
         var diff: Double = 0.0
-
-        fun name(): String {
-            var parentCount = 0
-            var currentParentId = this.parentId
-
-            while (currentParentId != null) {
-                parentCount++
-                currentParentId = marks[currentParentId]?.parentId
-            }
-
-            return when (parentCount) {
-                0 -> this.id
-                else -> "".padStart(parentCount * 3 - 2, ' ') + "┗━ " + this.id
-            }
+        private val displayName: String = when (depth) {
+            0 -> id
+            else -> "".padStart(depth * 3 - 2, ' ') + "┗━ " + id
         }
+
+        fun name(): String = displayName
     }
 
     private val marks = mutableMapOf<String, Mark>()
@@ -45,9 +38,13 @@ object CpuLogger {
         activeMarks.clear()
     }
 
-    private fun currentMarkId(): String? = activeMarks.lastOrNull()
+    fun currentMarkId(): String? = activeMarks.lastOrNull()
 
-    fun <T> mark(id: String, parentId: String? = currentMarkId(), action: () -> T): T {
+
+    inline fun <T> mark(id: KFunction<*>, parentId: KFunction<*>? = null, action: () -> T): T =
+        mark(id.name, parentId?.name ?: currentMarkId(), action)
+
+    inline fun <T> mark(id: String, parentId: String? = currentMarkId(), action: () -> T): T {
         markStart(id, parentId)
         return try {
             action()
@@ -56,24 +53,30 @@ object CpuLogger {
         }
     }
 
-    fun <T> mark(id: KFunction<*>, parentId: KFunction<*>? = null, action: () -> T): T =
-        mark(id.name, parentId?.name ?: currentMarkId(), action)
+    fun markStart(id: KFunction<*>, parentId: KFunction<*>? = null) =
+        markStart(id.name, parentId?.name ?: currentMarkId())
+
+    fun markEnd(id: KFunction<*>) =
+        markEnd(id.name)
 
     fun markStart(id: String, parentId: String? = currentMarkId()) {
-        if (!isEnabled || (filter.isNotEmpty() && !filter.contains(id))) return
+        if (!isEnabled) return
+        if (filter.isNotEmpty() && !filter.contains(id)) return
 
-        marks[id] = Mark(id, parentId)
+        val depth = when (parentId) {
+            null -> 0
+            else -> (marks[parentId]?.depth ?: 0) + 1
+        }
+
+        marks[id] = Mark(id, parentId, depth)
         activeMarks.addLast(id)
-    }
-
-    fun markStart(id: KFunction<*>, parentId: KFunction<*>? = null) {
-        markStart(id.name, parentId?.name ?: currentMarkId())
     }
 
     fun markEnd(id: String) {
         if (!isEnabled) return
 
-        marks[id]?.calcDiff()
+        val now = Game.cpu.getUsed()
+        marks[id]?.calcDiff(now)
         if (activeMarks.isNotEmpty()) {
             if (activeMarks.last() == id) {
                 activeMarks.removeLast()
@@ -83,11 +86,14 @@ object CpuLogger {
         }
     }
 
-    fun markEnd(id: KFunction<*>) {
-        markEnd(id.name)
-    }
 
     fun marks(): Map<String, Mark> = marks
+
+    fun print() {
+        marks.values.forEach { mark ->
+            Root.log.info(mark.name().padEnd(40), "CPU:", mark.diff)
+        }
+    }
 
     fun total() = Game.cpu.getUsed()
 }
