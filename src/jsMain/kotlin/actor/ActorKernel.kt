@@ -71,9 +71,9 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     )
 
     fun restore(snapshot: KernelSnapshot) {
-        clearTransientRuntimeState()
         if (snapshot.actors.isNotEmpty()) {
             log.warn("[Persistence] Actor snapshots present (${snapshot.actors.size}), but actor rehydration is not implemented yet")
+            // clearTransientRuntimeState()
         }
     }
 
