@@ -1,6 +1,5 @@
 import actors.SystemActor
 import room.RoomContext
-import scheduler.EventScheduler
 import screeps.api.Game
 import screeps.api.component1
 import screeps.api.component2
@@ -50,9 +49,9 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
             }
         }
 
-        CpuLogger.mark("EventScheduler") {
-            EventScheduler.execute()
-        }
+//        CpuLogger.mark("EventScheduler") {
+//            EventScheduler.execute()
+//        }
 
         SystemActor.tick()
     }

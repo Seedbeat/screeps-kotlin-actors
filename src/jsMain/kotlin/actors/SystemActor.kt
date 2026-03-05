@@ -3,17 +3,16 @@ package actors
 import actor.Actor
 import actor.ActorSystem
 import actor.message.IMessage
-import actors.base.IChildManager
+import actors.base.IChildrenManager
 import actors.base.Lifecycle
+import actors.base.OwnedRoomsManager
 import screeps.api.Game
-import screeps.api.values
-import screeps.utils.lazyPerTick
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
 
 class SystemActor(id: String) : Actor(id),
-    IChildManager<RoomActor>,
+    IChildrenManager<RoomActor> by OwnedRoomsManager(),
     ILogging by Logging<SystemActor>(LogLevel.INFO) {
 
     companion object {
@@ -54,21 +53,14 @@ class SystemActor(id: String) : Actor(id),
     private suspend fun onTick(msg: Lifecycle.Tick) {
         log.info("System tick: ${msg.time}")
 
-        syncOwnedChildren(::RoomActor)
-        broadcastToChildren(msg)
+        syncChildren()
+        broadcast(this, msg)
     }
 
     private suspend fun onBootstrap() {
         log.info("System bootstrap")
 
-        syncOwnedChildren(::RoomActor)
-        broadcastToChildren(Lifecycle.Bootstrap)
+        syncChildren()
+        broadcast(this, Lifecycle.Bootstrap)
     }
-
-    override val targetChildrenIds by lazyPerTick {
-        Game.rooms.values.filter { room -> room.controller?.my == true }.map { room -> room.name }.toSet()
-    }
-
-    override fun filterRegisteredChildren(actors: Collection<Actor>) =
-        actors.filterIsInstance<RoomActor>()
 }
