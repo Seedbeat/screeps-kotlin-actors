@@ -1,9 +1,6 @@
 package actors.base
 
-import screeps.api.Game
-import screeps.api.Identifiable
-import screeps.api.Room
-import screeps.api.get
+import screeps.api.*
 import utils.lazyPerTickNullable
 
 interface IActorBinding<T> {
@@ -22,4 +19,8 @@ class GameObjectBinding<T : Identifiable>(id: String) : IActorBinding<T> {
 
 class GameRoomBinding(id: String) : IActorBinding<Room> {
     override val selfOrNull: Room? by lazyPerTickNullable { Game.rooms[id] }
+}
+
+class GameCreepBinding(name: String) : IActorBinding<Creep> {
+    override val selfOrNull: Creep? by lazyPerTickNullable { Game.creeps[name] }
 }
