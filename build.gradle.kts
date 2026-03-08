@@ -54,7 +54,7 @@ kotlin {
     sourceSets {
         jsMain {
             dependencies {
-                implementation("io.github.exav:screeps-kotlin-types:2.1.0")
+                implementation("io.github.exav:screeps-kotlin-types:2.2.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
             }
