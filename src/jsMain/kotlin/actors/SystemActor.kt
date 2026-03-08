@@ -6,7 +6,11 @@ import actor.message.IMessage
 import actors.base.IChildrenManager
 import actors.base.Lifecycle
 import actors.base.OwnedRoomsManager
+import memory.delete
 import screeps.api.Game
+import screeps.api.Memory
+import screeps.api.get
+import screeps.api.keys
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -54,6 +58,7 @@ class SystemActor(id: String) : Actor(id),
         log.info("System tick: ${msg.time}")
 
         syncChildren()
+        cleanupStaleCreepMemory()
         broadcast(this, msg)
     }
 
@@ -61,6 +66,16 @@ class SystemActor(id: String) : Actor(id),
         log.info("System bootstrap")
 
         syncChildren()
+        cleanupStaleCreepMemory()
         broadcast(this, Lifecycle.Bootstrap)
+    }
+
+    private fun cleanupStaleCreepMemory() {
+        Memory.creeps.keys
+            .filter { name -> Game.creeps[name] == null }
+            .forEach { name ->
+                log.info("Deleting stale creep memory: $name")
+                Memory.creeps.delete(name)
+            }
     }
 }
