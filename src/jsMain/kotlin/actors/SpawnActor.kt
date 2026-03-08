@@ -5,9 +5,9 @@ import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.base.GameObjectBinding
 import actors.base.IActorBinding
+import creep.enums.Role
 import memory.role
 import screeps.api.FIND_MY_CREEPS
-import screeps.api.Game
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
 import spawn.Spawner
@@ -32,29 +32,20 @@ class SpawnActor(
         }
     }
 
-    private fun ensurePopulation(role: creep.enums.Role, targetCount: Int) {
-        val spawn: StructureSpawn? = Game.getObjectById(id)
-        if (spawn == null) {
-            log.warn("Spawn object is missing for id=$id")
-            return
-        }
-
-        if (spawn.spawning != null)
+    private fun ensurePopulation(role: Role, targetCount: Int) {
+        if (self.spawning != null)
             return
 
         val count = currentPopulation(role)
         if (count >= targetCount)
             return
 
-        val code = Spawner.spawn(spawn, role)
+        val code = Spawner.spawn(self, role)
         if (code == OK) {
             log.info("Spawn request accepted: role=$role count=$count/$targetCount")
         }
     }
 
-    private fun currentPopulation(role: creep.enums.Role): Int {
-        val spawn: StructureSpawn? = Game.getObjectById(id)
-        spawn ?: return 0
-        return spawn.room.find(FIND_MY_CREEPS).count { creep -> creep.memory.role == role }
-    }
+    private fun currentPopulation(role: Role): Int =
+        self.room.find(FIND_MY_CREEPS).count { creep -> creep.memory.role == role }
 }
