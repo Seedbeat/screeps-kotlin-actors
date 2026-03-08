@@ -12,21 +12,39 @@ import kotlin.coroutines.createCoroutine
 import kotlin.coroutines.resume
 
 abstract class Actor(val id: String) : ILogging {
+    private var isDestroyed = false
+
     private val continuation: Continuation<Unit> = ::run.createCoroutine(object : Continuation<Unit> {
         override val context = EmptyCoroutineContext
         override fun resumeWith(result: Result<Unit>) {
+            destroy()
             ActorSystem.remove(id)
-            log.info("[Lifecycle] Finish: $result")
+            log.info("[Lifecycle] Finished: $result")
         }
     })
     private val mailbox = mutableListOf<IMessage>()
 
     fun start() {
-        log.info("[Lifecycle] Start")
+        log.info("[Lifecycle] Started")
         continuation.resume(Unit)
     }
 
     abstract suspend fun run()
+
+    open fun onDestroy() = Unit
+
+    internal fun destroy() {
+        if (isDestroyed)
+            return
+
+        try {
+            onDestroy()
+        } catch (exception: Exception) {
+            log.error("[Lifecycle] onDestroy failed", exception)
+        } finally {
+            isDestroyed = true
+        }
+    }
 
     suspend fun <T : IMessage> receive(): T = suspendCancellableCoroutine { continuation ->
         if (mailbox.isNotEmpty()) {

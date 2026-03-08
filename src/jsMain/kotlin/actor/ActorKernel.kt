@@ -51,6 +51,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     }
 
     fun removeActor(actorId: String) {
+        actors[actorId]?.destroy()
         readyActorIdsSet.remove(actorId)
         sleeping.remove(actorId)
         waitingNextTick.remove(actorId)
