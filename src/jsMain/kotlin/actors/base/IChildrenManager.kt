@@ -3,12 +3,10 @@ package actors.base
 import actor.Actor
 import actor.ActorSystem
 import actor.message.IPayload
+import actors.CreepActor
 import actors.RoomActor
 import actors.SpawnActor
-import screeps.api.FIND_MY_SPAWNS
-import screeps.api.Game
-import screeps.api.Room
-import screeps.api.values
+import screeps.api.*
 import screeps.utils.lazyPerTick
 
 interface IChildrenManager<T : Actor> {
@@ -53,5 +51,16 @@ class RoomSpawnsManager(room: Room) : IChildrenManager<SpawnActor> {
     override val create = ::SpawnActor
 
     override fun filterChildren(actors: Collection<Actor>) =
-        actors.filterIsInstance<RoomActor>()
+        actors.filterIsInstance<SpawnActor>()
+}
+
+class RoomCreepsManager(room: Room) : IChildrenManager<CreepActor> {
+    override val childrenIds by lazyPerTick {
+        room.find(FIND_MY_CREEPS).map { it.name }.toSet()
+    }
+
+    override val create = ::CreepActor
+
+    override fun filterChildren(actors: Collection<Actor>) =
+        actors.filterIsInstance<CreepActor>()
 }
