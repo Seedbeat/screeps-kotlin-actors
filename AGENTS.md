@@ -284,6 +284,8 @@ When changing actor behavior or migrating legacy logic, document:
 - performance impact
 - remaining migration work
 
+Update `AGENTS.md` or `docs/*` when architecture, invariants, migration assumptions, or runtime boundaries have changed enough that the existing documentation would mislead future work.
+
 If tests were not run or do not exist for that area, say so explicitly.
 
 Comments should explain why an invariant exists, especially around:
