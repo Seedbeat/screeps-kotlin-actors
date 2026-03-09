@@ -2,7 +2,7 @@
 
 ## Project
 
-`screeps-kotlin-actors` is a Kotlin/JS Screeps bot migrating from the old scheduler/role system to an actor-based runtime.
+`screeps-kotlin-actors` is a Kotlin/JS Screeps bot. The current development focus is migrating the old scheduler/role system to an actor-based runtime.
 
 The active runtime path is:
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is migrating from the old scheduler/role model to an actor-first runtime.
+This project is a Screeps bot. The current development focus is migrating from the old scheduler/role model to an actor-first runtime.
 
 The actor runtime is the live execution model:
 
