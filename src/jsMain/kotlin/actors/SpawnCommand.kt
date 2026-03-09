@@ -4,9 +4,7 @@ import actor.message.ICommand
 import creep.enums.Role
 
 sealed class SpawnCommand : ICommand {
-
-    data class EnsurePopulation(
-        val role: Role,
-        val targetCount: Int
+    data class TrySpawn(
+        val role: Role
     ) : SpawnCommand()
 }

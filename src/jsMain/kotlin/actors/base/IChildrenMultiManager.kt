@@ -11,4 +11,6 @@ interface IChildrenMultiManager {
     }
 
     fun syncChildren() = managers.values.forEach { it.syncChildren() }
+
+    fun destroyChildren() = managers.values.forEach { it.destroyChildren() }
 }

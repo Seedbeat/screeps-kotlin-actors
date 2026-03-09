@@ -9,10 +9,9 @@ sealed class RoomIntent : RoomCommand(), IIntent {
         override val priority: IntentPriority,
         override val createdTick: Int,
         override val interruptible: Boolean,
-        val spawnActorId: String,
         val role: Role,
         val targetCount: Int
     ) : RoomIntent() {
-        override val intentId: String = "${this::class.simpleName}$spawnActorId:$role"
+        override val intentId: String = "${this::class.simpleName}:$role"
     }
 }

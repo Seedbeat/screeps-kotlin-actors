@@ -1,13 +1,11 @@
 package actors
 
-import actors.SpawnCommand.EnsurePopulation
 import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
+import actors.SystemRequest.CountCreeps
 import actors.base.GameObjectBinding
 import actors.base.IActorBinding
 import creep.enums.Role
-import memory.role
-import screeps.api.FIND_MY_CREEPS
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
 import spawn.Spawner
@@ -22,30 +20,26 @@ class SpawnActor(
     ILogging by Logging.Companion<SpawnActor>(id, LogLevel.INFO) {
 
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {
-        is EnsurePopulation -> ensurePopulation(msg.role, msg.targetCount)
+        is SpawnCommand.TrySpawn -> trySpawn(msg.role)
     }
 
     override suspend fun processRequest(msg: SpawnRequest): SpawnResponse<*> = when (msg) {
         is PopulationRequest -> {
-            val count = currentPopulation(msg.role)
+            val count: Int = requestFrom(
+                SystemActor.SYSTEM,
+                CountCreeps(homeRoom = self.room.name, role = msg.role)
+            )
             PopulationResponse(count)
         }
     }
 
-    private fun ensurePopulation(role: Role, targetCount: Int) {
+    private fun trySpawn(role: Role) {
         if (self.spawning != null)
-            return
-
-        val count = currentPopulation(role)
-        if (count >= targetCount)
             return
 
         val code = Spawner.spawn(self, role)
         if (code == OK) {
-            log.info("Spawn request accepted: role=$role count=$count/$targetCount")
+            log.info("Spawn request accepted: role=$role homeRoom=${self.room.name}")
         }
     }
-
-    private fun currentPopulation(role: Role): Int =
-        self.room.find(FIND_MY_CREEPS).count { creep -> creep.memory.role == role }
 }

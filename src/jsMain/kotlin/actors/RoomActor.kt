@@ -6,15 +6,13 @@ import actors.CreepRequest.Unassign
 import actors.RoomRequest.ReleaseResource
 import actors.RoomRequest.StatusRequest
 import actors.RoomResponse.*
+import actors.SystemRequest.CountCreeps
 import actors.base.*
 import creep.enums.Role
 import memory.resourceLockOwners
 import memory.resourceSemaphore
 import memory.stage
-import screeps.api.Room
-import screeps.api.get
-import screeps.api.keys
-import screeps.api.set
+import screeps.api.*
 import utils.*
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -30,12 +28,16 @@ class RoomActor(
     companion object {
         private const val STAGE_SYNC_INTERVAL = 19
         private const val SEMAPHORE_SYNC_INTERVAL = 25
+        private const val TARGET_HARVESTERS = 2
     }
 
     override val managers = mapOf(
-        SpawnActor::class.simpleName!! to RoomSpawnsManager(self),
-        CreepActor::class.simpleName!! to RoomCreepsManager(self)
+        SpawnActor::class.simpleName!! to RoomSpawnsManager(self)
     )
+
+    override fun onDestroy() {
+        destroyChildren()
+    }
 
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
         is Lifecycle.Bootstrap -> {
@@ -96,36 +98,40 @@ class RoomActor(
     }
 
     override suspend fun planIntents(time: Int) {
-        val role = Role.HARVESTER
-        val targetCount = 2
-
-        managers[SpawnActor::class.simpleName!!]?.childrenIds?.forEach { id ->
-            enqueue(
-                RoomIntent.EnsurePopulation(
-                    priority = IntentPriority.NORMAL,
-                    createdTick = time,
-                    interruptible = true,
-                    spawnActorId = id,
-                    role = role,
-                    targetCount = targetCount
-                )
+        enqueue(
+            RoomIntent.EnsurePopulation(
+                priority = IntentPriority.NORMAL,
+                createdTick = time,
+                interruptible = true,
+                role = Role.HARVESTER,
+                targetCount = TARGET_HARVESTERS
             )
-        }
+        )
     }
 
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
         is RoomIntent.EnsurePopulation -> {
-            if (!ActorSystem.contains(intent.spawnActorId)) {
-                IntentResultType.RETAINED
-            } else {
-                sendTo(
-                    intent.spawnActorId,
-                    SpawnCommand.EnsurePopulation(
-                        role = intent.role,
-                        targetCount = intent.targetCount
-                    )
-                )
+            val currentPopulation: Int = requestFrom(
+                SystemActor.SYSTEM,
+                CountCreeps(homeRoom = id, role = intent.role)
+            )
+
+            if (currentPopulation >= intent.targetCount) {
                 IntentResultType.COMPLETED
+            } else {
+                val availableSpawnActorId = self.find(FIND_MY_SPAWNS)
+                    .firstOrNull { spawn -> spawn.spawning == null && ActorSystem.contains(spawn.id) }
+                    ?.id
+
+                if (availableSpawnActorId == null) {
+                    IntentResultType.RETAINED
+                } else {
+                    sendTo(
+                        availableSpawnActorId,
+                        SpawnCommand.TrySpawn(role = intent.role)
+                    )
+                    IntentResultType.COMPLETED
+                }
             }
         }
     }
@@ -263,9 +269,8 @@ class RoomActor(
     }
 
     private fun reconcileMissingResourceOwners() {
-        val activeCreepIds = managers[CreepActor::class.simpleName!!]?.childrenIds ?: emptySet()
         val owners = self.memory.resourceLockOwners
-        val missingOwnerIds = owners.keys.filter { ownerId -> ownerId !in activeCreepIds }
+        val missingOwnerIds = owners.keys.filter { ownerId -> !ActorSystem.contains(ownerId) }
 
         if (missingOwnerIds.isEmpty()) {
             return

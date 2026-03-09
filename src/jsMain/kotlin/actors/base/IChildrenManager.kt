@@ -11,56 +11,68 @@ import screeps.utils.lazyPerTick
 
 interface IChildrenManager<T : Actor> {
     val childrenIds: Set<String>
-    fun filterChildren(actors: Collection<Actor>): Collection<Actor>
-
+    val ownedChildrenIds: MutableSet<String>
     val create: (String) -> T
 
     fun syncChildren() {
-        val roomActorsIds = ActorSystem.actors().values
-            .let(::filterChildren)
-            .map(Actor::id)
+        val desiredChildrenIds = childrenIds
+
+        desiredChildrenIds
+            .filter(ActorSystem::contains)
+            .forEach(ownedChildrenIds::add)
+
+        val toCreate = desiredChildrenIds
+            .filterNot(ActorSystem::contains)
             .toSet()
+        val toRemove = ownedChildrenIds - desiredChildrenIds
 
-        val toCreate = childrenIds - roomActorsIds
-        val toRemove = roomActorsIds - childrenIds
+        toCreate.forEach { actorId ->
+            ActorSystem.spawn(actorId, create)
+            ownedChildrenIds.add(actorId)
+        }
+        toRemove.forEach { actorId ->
+            ActorSystem.remove(actorId)
+            ownedChildrenIds.remove(actorId)
+        }
+    }
 
-        toCreate.forEach { actorId -> ActorSystem.spawn(actorId, create) }
-        toRemove.forEach { actorId -> ActorSystem.remove(actorId) }
+    fun destroyChildren() {
+        ownedChildrenIds.toList().forEach { actorId -> ActorSystem.remove(actorId) }
+        ownedChildrenIds.clear()
     }
 
     fun broadcast(self: Actor, payload: IPayload) =
         childrenIds.forEach { actorId -> self.sendTo(actorId, payload) }
 }
 
-class OwnedRoomsManager : IChildrenManager<RoomActor> {
+sealed class ChildrenManager<T : Actor> : IChildrenManager<T> {
+    override val ownedChildrenIds = mutableSetOf<String>()
+}
+
+class OwnedRoomsManager : ChildrenManager<RoomActor>() {
     override val childrenIds by lazyPerTick {
         Game.rooms.values.filter { room -> room.controller?.my == true }.map { room -> room.name }.toSet()
     }
-
     override val create = ::RoomActor
-
-    override fun filterChildren(actors: Collection<Actor>) =
-        actors.filterIsInstance<RoomActor>()
 }
 
-class RoomSpawnsManager(room: Room) : IChildrenManager<SpawnActor> {
+class OwnedCreepsManager : ChildrenManager<CreepActor>() {
+    override val childrenIds by lazyPerTick {
+        Game.creeps.keys.toSet()
+    }
+    override val create = ::CreepActor
+}
+
+class RoomSpawnsManager(room: Room) : ChildrenManager<SpawnActor>() {
     override val childrenIds by lazyPerTick {
         room.find(FIND_MY_SPAWNS).map { it.id }.toSet()
     }
-
     override val create = ::SpawnActor
-
-    override fun filterChildren(actors: Collection<Actor>) =
-        actors.filterIsInstance<SpawnActor>()
 }
 
-class RoomCreepsManager(room: Room) : IChildrenManager<CreepActor> {
+class RoomCreepsManager(room: Room) : ChildrenManager<CreepActor>() {
     override val childrenIds by lazyPerTick {
         room.find(FIND_MY_CREEPS).map { it.name }.toSet()
     }
-
     override val create = ::CreepActor
-
-    override fun filterChildren(actors: Collection<Actor>) =
-        actors.filterIsInstance<CreepActor>()
 }
