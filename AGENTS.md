@@ -49,7 +49,7 @@ Module boundary:
 - `CreepActor`
   - actor id is the creep name
   - lifecycle is global, not derived from current room position
-  - owns creep-local cleanup and request handling
+  - owns creep-local execution, cleanup, and request handling
 
 ### Affiliation
 
@@ -98,6 +98,8 @@ Prefer a protocol change over direct shared-state coupling across actor boundari
 - room-level population targets belong to `RoomActor`
 - `SpawnActor` executes spawn-side actions and should not own room-wide population policy
 - do not use `room.find(FIND_MY_CREEPS)` as the authoritative room population source when remote or cross-room behavior matters
+- the first live room-survival slice is `RoomIntent.EnsureControllerSurvival`
+- room survival assigns `CreepAssignment.ControllerUpkeep` rather than relying on legacy creep roles
 
 ### Room resources
 
@@ -106,12 +108,14 @@ Prefer a protocol change over direct shared-state coupling across actor boundari
 - `RoomRequest.TryAcquireResource` acquires room-managed resource locks
 - `RoomRequest.ReleaseResource` releases room-managed resource locks
 - `RoomActor` reconciles orphaned lock owners when the owning actor no longer exists
+- `CreepActor` may hold a source lock only while actively harvesting for its current assignment
 
 Rules:
 
 - prefer room-mediated acquire/release over ad hoc memory writes
 - if semaphore shape or lock semantics change, review both actor code and legacy helpers
 - when checking whether a lock owner still exists, use actor/runtime ownership rules rather than room-local creep presence
+- release source locks immediately when leaving the harvest phase; `ClearAssignment` and `onDestroy` are fallback cleanup paths, not the normal lock lifetime
 
 ---
 
@@ -125,12 +129,14 @@ Current state:
 - `ActorKernel.snapshot()` stores actor ids and actor type names
 - `ActorKernel.restore()` does not rehydrate actor instances yet
 - creep affiliation persists through `CreepMemory.homeRoom` and `CreepMemory.assignmentRoom`
+- creep assignment state for actor-owned behavior is persisted through creep memory fields
 
 Implications:
 
 - do not assume arbitrary actor-local state survives reset
 - actor snapshotting is runtime bookkeeping, not full restoration
 - current room position should be derived from `Game`, not persisted as actor truth
+- if assignment or phase is persisted in creep memory, keep it reconstructible from explicit fields rather than opaque serialized objects
 - if you add persistent actor state, you must define restore behavior as well
 
 If you change persistence:

@@ -3,10 +3,13 @@ package actors
 import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.SystemRequest.CountCreeps
+import actors.assignments.ControllerUpkeepPhase
 import actors.base.Actors
 import actors.base.GameObjectBinding
 import actors.base.IActorBinding
 import creep.enums.Role
+import memory.controllerUpkeepPhase
+import memory.setAssignment
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
 import spawn.Spawner
@@ -21,7 +24,7 @@ class SpawnActor(
     ILogging by Logging.Companion<SpawnActor>(id, LogLevel.INFO) {
 
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {
-        is SpawnCommand.TrySpawn -> trySpawn(msg.role)
+        is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)
     }
 
     override suspend fun processRequest(msg: SpawnRequest): SpawnResponse<*> = when (msg) {
@@ -34,13 +37,26 @@ class SpawnActor(
         }
     }
 
-    private fun trySpawn(role: Role) {
+    private fun trySpawn(role: Role, memory: screeps.api.CreepMemory.() -> Unit = {}) {
         if (self.spawning != null)
             return
 
-        val code = Spawner.spawn(self, role)
+        val code = Spawner.spawn(self, role, memory = memory)
         if (code == OK) {
             log.info("Spawn request accepted: role=$role homeRoom=${self.room.name}")
+        }
+    }
+
+    private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
+        trySpawn(Role.HARVESTER) {
+            setAssignment(
+                CreepAssignment.ControllerUpkeep(
+                    roomName = msg.roomName,
+                    controllerId = msg.controllerId,
+                    sourceId = msg.sourceId
+                )
+            )
+            controllerUpkeepPhase(ControllerUpkeepPhase.HARVEST)
         }
     }
 }

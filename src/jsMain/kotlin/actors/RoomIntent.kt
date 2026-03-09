@@ -2,16 +2,13 @@ package actors
 
 import actors.base.IIntent
 import actors.base.IntentPriority
-import creep.enums.Role
 
 sealed class RoomIntent : RoomCommand(), IIntent {
-    data class EnsurePopulation(
+    data class EnsureControllerSurvival(
         override val priority: IntentPriority,
         override val createdTick: Int,
-        override val interruptible: Boolean,
-        val role: Role,
-        val targetCount: Int
+        override val interruptible: Boolean
     ) : RoomIntent() {
-        override val intentId: String = "${this::class.simpleName}:$role"
+        override val intentId: String = this::class.simpleName!!
     }
 }

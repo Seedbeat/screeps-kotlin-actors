@@ -101,6 +101,7 @@ That includes:
 - room semaphore sync
 - room resource coordination
 - room intents
+- the first live survival intent: `RoomIntent.EnsureControllerSurvival`
 
 Spawn-side execution belongs to `SpawnActor`.
 
@@ -111,6 +112,14 @@ That means:
 - legacy `spawn/Spawner.kt` remains an execution helper for now
 
 Global creep counting belongs to `SystemActor`.
+
+Current first vertical slice:
+
+- `RoomActor` plans controller survival
+- `SystemActor` answers creep-affiliation queries
+- `SpawnActor` spawns a cheap survival worker when no suitable creep exists
+- `CreepActor` executes `CreepAssignment.ControllerUpkeep` on `Lifecycle.Tick`
+- source locks are held only during the harvest phase and are released before the creep switches to controller upgrading
 
 Why this split exists:
 
@@ -171,6 +180,7 @@ What is persisted:
 - `Memory.actorKernelSnapshot`
 - actor ids and actor type names
 - creep memory such as `homeRoom` and `assignmentRoom`
+- explicit creep-assignment fields for actor-owned execution, such as assignment kind, target ids, and assignment phase
 
 What is not fully restored:
 

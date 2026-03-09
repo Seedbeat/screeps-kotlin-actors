@@ -1,12 +1,11 @@
 package actors
 
 import actors.SystemRequest.CountCreeps
+import actors.SystemRequest.QueryCreeps
 import actors.SystemResponse.CountCreepsResponse
+import actors.SystemResponse.QueryCreepsResponse
 import actors.base.*
-import memory.assignmentRoom
-import memory.delete
-import memory.homeRoom
-import memory.role
+import memory.*
 import screeps.api.Game
 import screeps.api.Memory
 import screeps.api.get
@@ -61,6 +60,30 @@ class SystemActor(id: String) :
                         (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
                         (msg.assignmentRoom == null || creep.memory.assignmentRoom == msg.assignmentRoom) &&
                         (msg.role == null || creep.memory.role == msg.role)
+            }
+        )
+        is QueryCreeps -> QueryCreepsResponse(
+            result = Game.creeps.keys.mapNotNull { name ->
+                val creep = Game.creeps[name] ?: return@mapNotNull null
+                if (msg.homeRoom != null && creep.memory.homeRoom != msg.homeRoom) {
+                    return@mapNotNull null
+                }
+                if (msg.currentRoom != null && creep.room.name != msg.currentRoom) {
+                    return@mapNotNull null
+                }
+                if (msg.assignmentRoom != null && creep.memory.assignmentRoom != msg.assignmentRoom) {
+                    return@mapNotNull null
+                }
+
+                CreepStatus(
+                    actorId = name,
+                    homeRoom = creep.memory.homeRoom,
+                    assignmentRoom = creep.memory.assignmentRoom,
+                    currentRoom = creep.room.name,
+                    assignment = creep.memory.assignmentOrNull(),
+                    capabilities = CreepCapabilities.from(creep),
+                    lockedResourceId = creep.memory.lockedObjectId.takeIf { it.isNotBlank() }
+                )
             }
         )
     }

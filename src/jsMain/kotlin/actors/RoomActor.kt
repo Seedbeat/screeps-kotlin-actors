@@ -1,14 +1,11 @@
 package actors
 
 import actor.ActorSystem
-import actors.CreepCommand.SetLockedResourceId
-import actors.CreepRequest.Unassign
 import actors.RoomRequest.ReleaseResource
 import actors.RoomRequest.StatusRequest
 import actors.RoomResponse.*
-import actors.SystemRequest.CountCreeps
+import actors.SystemRequest.QueryCreeps
 import actors.base.*
-import creep.enums.Role
 import memory.resourceLockOwners
 import memory.resourceSemaphore
 import memory.stage
@@ -28,7 +25,6 @@ class RoomActor(
     companion object {
         private const val STAGE_SYNC_INTERVAL = 19
         private const val SEMAPHORE_SYNC_INTERVAL = 25
-        private const val TARGET_HARVESTERS = 2
     }
 
     override val managers = mapOf(
@@ -82,7 +78,7 @@ class RoomActor(
             syncSemaphores()
         }
 
-        is RoomIntent.EnsurePopulation -> {
+        is RoomIntent.EnsureControllerSurvival -> {
             enqueue(msg)
         }
     }
@@ -99,26 +95,49 @@ class RoomActor(
 
     override suspend fun planIntents(time: Int) {
         enqueue(
-            RoomIntent.EnsurePopulation(
+            RoomIntent.EnsureControllerSurvival(
                 priority = IntentPriority.NORMAL,
                 createdTick = time,
-                interruptible = true,
-                role = Role.HARVESTER,
-                targetCount = TARGET_HARVESTERS
+                interruptible = true
             )
         )
     }
 
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
-        is RoomIntent.EnsurePopulation -> {
-            val currentPopulation: Int = requestFrom(
+        is RoomIntent.EnsureControllerSurvival -> {
+            val controller = self.controller ?: return IntentResultType.RETAINED
+            val source = self.find(FIND_SOURCES).firstOrNull() ?: return IntentResultType.RETAINED
+            val creeps: List<CreepStatus> = requestFrom(
                 Actors.SYSTEM,
-                CountCreeps(homeRoom = id, role = intent.role)
+                QueryCreeps(homeRoom = id)
             )
 
-            if (currentPopulation >= intent.targetCount) {
+            val assignedSurvivalCreep = creeps.firstOrNull { creep ->
+                val assignment = creep.assignment as? CreepAssignment.ControllerUpkeep
+                assignment?.roomName == id && assignment.controllerId == controller.id
+            }
+
+            if (assignedSurvivalCreep != null) {
                 IntentResultType.COMPLETED
             } else {
+                val existingSurvivalCreep = creeps.firstOrNull { creep ->
+                    creep.capabilities.canDoControllerUpkeep && creep.assignment == null
+                }
+
+                if (existingSurvivalCreep != null) {
+                    sendTo(
+                        existingSurvivalCreep.actorId,
+                        CreepCommand.Assign(
+                            CreepAssignment.ControllerUpkeep(
+                                roomName = id,
+                                controllerId = controller.id,
+                                sourceId = source.id
+                            )
+                        )
+                    )
+                    return IntentResultType.COMPLETED
+                }
+
                 val availableSpawnActorId = self.find(FIND_MY_SPAWNS)
                     .firstOrNull { spawn -> spawn.spawning == null && ActorSystem.contains(spawn.id) }
                     ?.id
@@ -128,7 +147,11 @@ class RoomActor(
                 } else {
                     sendTo(
                         availableSpawnActorId,
-                        SpawnCommand.TrySpawn(role = intent.role)
+                        SpawnCommand.TrySpawnControllerSurvivalWorker(
+                            roomName = id,
+                            controllerId = controller.id,
+                            sourceId = source.id
+                        )
                     )
                     IntentResultType.COMPLETED
                 }
@@ -249,9 +272,12 @@ class RoomActor(
         var released = 0
         affectedOwners.forEach { ownerId ->
             val lockedId = self.memory.resourceLockOwners[ownerId] ?: return@forEach
-            unassignOwner(ownerId)
+            val unassigned = unassignOwner(ownerId)
+            val lockStillHeld = self.memory.resourceLockOwners[ownerId] == lockedId
 
-            if (releaseResource(ownerId, lockedId) == true) {
+            if (lockStillHeld && releaseResource(ownerId, lockedId) == true) {
+                released++
+            } else if (unassigned && !lockStillHeld) {
                 released++
             }
         }
@@ -303,12 +329,13 @@ class RoomActor(
         }
     }
 
-    private suspend fun unassignOwner(ownerId: String): Boolean {
+    private fun unassignOwner(ownerId: String): Boolean {
         if (!ActorSystem.contains(ownerId)) {
             return false
         }
 
-        return requestFrom(ownerId, Unassign)
+        sendTo(ownerId, CreepCommand.ClearAssignment)
+        return true
     }
 
     private fun mirrorLockedResourceId(ownerId: String, resourceId: String?) {
@@ -316,7 +343,7 @@ class RoomActor(
             return
         }
 
-        sendTo(ownerId, SetLockedResourceId(resourceId))
+        sendTo(ownerId, CreepCommand.SetLockedResourceId(resourceId))
     }
 
 }

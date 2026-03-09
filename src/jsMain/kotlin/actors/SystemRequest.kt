@@ -10,4 +10,10 @@ sealed class SystemRequest : IRequest {
         val assignmentRoom: String? = null,
         val role: Role? = null
     ) : SystemRequest()
+
+    data class QueryCreeps(
+        val homeRoom: String? = null,
+        val currentRoom: String? = null,
+        val assignmentRoom: String? = null
+    ) : SystemRequest()
 }

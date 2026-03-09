@@ -1,10 +1,11 @@
 package actors
 
 import actor.message.ICommand
-import creep.enums.Role
 
 sealed class SpawnCommand : ICommand {
-    data class TrySpawn(
-        val role: Role
+    data class TrySpawnControllerSurvivalWorker(
+        val roomName: String,
+        val controllerId: String,
+        val sourceId: String
     ) : SpawnCommand()
 }
