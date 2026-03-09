@@ -1,9 +1,6 @@
-import actors.SystemActor
+import actors.base.Actors
 import room.RoomContext
 import screeps.api.Game
-import screeps.api.component1
-import screeps.api.component2
-import screeps.api.iterator
 import screeps.utils.lazyPerTick
 import utils.CpuLogger
 import utils.log.ILogging
@@ -33,7 +30,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
     fun onReset() {
         log.warn("RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET")
-        SystemActor.init()
+        Actors.init()
     }
 
     fun preLoop() {
@@ -42,18 +39,18 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
     }
 
     fun loop() {
-        CpuLogger.mark("ContextCreation") {
-            for ((name, room) in Game.rooms) {
-                if (!roomContext.containsKey(name))
-                    roomContext[name] = RoomContext(room)
-            }
-        }
-
+//        CpuLogger.mark("ContextCreation") {
+//            for ((name, room) in Game.rooms) {
+//                if (!roomContext.containsKey(name))
+//                    roomContext[name] = RoomContext(room)
+//            }
+//        }
+//
 //        CpuLogger.mark("EventScheduler") {
 //            EventScheduler.execute()
 //        }
 
-        SystemActor.tick()
+        Actors.tick()
     }
 
     fun postLoop() {

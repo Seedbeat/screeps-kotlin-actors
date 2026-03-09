@@ -37,7 +37,7 @@ interface IChildrenManager<T : Actor> {
     }
 
     fun destroyChildren() {
-        ownedChildrenIds.toList().forEach { actorId -> ActorSystem.remove(actorId) }
+        ownedChildrenIds.forEach { actorId -> ActorSystem.remove(actorId) }
         ownedChildrenIds.clear()
     }
 

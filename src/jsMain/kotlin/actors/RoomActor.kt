@@ -112,7 +112,7 @@ class RoomActor(
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
         is RoomIntent.EnsurePopulation -> {
             val currentPopulation: Int = requestFrom(
-                SystemActor.SYSTEM,
+                Actors.SYSTEM,
                 CountCreeps(homeRoom = id, role = intent.role)
             )
 

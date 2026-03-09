@@ -1,14 +1,8 @@
 package actors
 
-import actor.Actor
-import actor.ActorSystem
-import actor.message.IMessage
 import actors.SystemRequest.CountCreeps
 import actors.SystemResponse.CountCreepsResponse
-import actors.base.IChildrenMultiManager
-import actors.base.Lifecycle
-import actors.base.OwnedCreepsManager
-import actors.base.OwnedRoomsManager
+import actors.base.*
 import memory.assignmentRoom
 import memory.delete
 import memory.homeRoom
@@ -21,7 +15,9 @@ import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
 
-class SystemActor(id: String) : Actor(id),
+class SystemActor(id: String) :
+    ActorBase<Unit, SystemCommand, SystemRequest, SystemResponse<*>>(id),
+    IActorBinding<Unit> by NoBinding,
     IChildrenMultiManager,
     ILogging by Logging<SystemActor>(LogLevel.INFO) {
 
@@ -30,45 +26,7 @@ class SystemActor(id: String) : Actor(id),
         CreepActor::class.simpleName!! to OwnedCreepsManager()
     )
 
-    companion object {
-        const val SYSTEM = "SYSTEM"
-
-        fun init() {
-            ActorSystem.spawn(SYSTEM, ::SystemActor)
-            ActorSystem.send(SYSTEM, SYSTEM, Lifecycle.Bootstrap)
-        }
-
-        fun tick() {
-            ActorSystem.send(SYSTEM, SYSTEM, Lifecycle.Tick(Game.time))
-            ActorSystem.tick()
-        }
-    }
-
-    override suspend fun run() {
-        while (true) {
-            val msg = receive<IMessage>()
-            log.debug("[${msg.messageId}] from='${msg.from}' payload=${msg.payload}")
-
-            try {
-                when (val payload = msg.payload) {
-                    is Lifecycle -> onLifecycle(payload)
-                    is SystemRequest -> {
-                        val response = processRequest(payload)
-                        sendTo(msg.from, response, msg.messageId)
-                    }
-                    else -> log.warn("Unsupported payload for SystemActor: $payload")
-                }
-            } catch (exception: Exception) {
-                log.error("Failed to process message: $msg", exception)
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        destroyChildren()
-    }
-
-    private suspend fun onLifecycle(msg: Lifecycle) = when (msg) {
+    override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
         is Lifecycle.Tick -> onTick(msg)
         is Lifecycle.Bootstrap -> onBootstrap()
     }
@@ -91,16 +49,24 @@ class SystemActor(id: String) : Actor(id),
         broadcast(this, Lifecycle.Bootstrap)
     }
 
-    private fun processRequest(msg: SystemRequest): SystemResponse<*> = when (msg) {
+    override suspend fun processCommand(msg: SystemCommand) = when (msg) {
+        SystemCommand.Noop -> {}
+    }
+
+    override suspend fun processRequest(msg: SystemRequest): SystemResponse<*> = when (msg) {
         is CountCreeps -> CountCreepsResponse(
             result = Game.creeps.keys.count { name ->
                 val creep = Game.creeps[name] ?: return@count false
                 (msg.homeRoom == null || creep.memory.homeRoom == msg.homeRoom) &&
-                    (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
-                    (msg.assignmentRoom == null || creep.memory.assignmentRoom == msg.assignmentRoom) &&
-                    (msg.role == null || creep.memory.role == msg.role)
+                        (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
+                        (msg.assignmentRoom == null || creep.memory.assignmentRoom == msg.assignmentRoom) &&
+                        (msg.role == null || creep.memory.role == msg.role)
             }
         )
+    }
+
+    override fun onDestroy() {
+        destroyChildren()
     }
 
     private fun cleanupStaleCreepMemory() {

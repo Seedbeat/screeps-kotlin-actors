@@ -3,6 +3,7 @@ package actors
 import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.SystemRequest.CountCreeps
+import actors.base.Actors
 import actors.base.GameObjectBinding
 import actors.base.IActorBinding
 import creep.enums.Role
@@ -26,7 +27,7 @@ class SpawnActor(
     override suspend fun processRequest(msg: SpawnRequest): SpawnResponse<*> = when (msg) {
         is PopulationRequest -> {
             val count: Int = requestFrom(
-                SystemActor.SYSTEM,
+                Actors.SYSTEM,
                 CountCreeps(homeRoom = self.room.name, role = msg.role)
             )
             PopulationResponse(count)
