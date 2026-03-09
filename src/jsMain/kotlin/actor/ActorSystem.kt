@@ -66,16 +66,37 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     suspend fun <T> request(toActorId: String, fromActorId: String, payload: IRequest): T {
 
         if (!contains(toActorId)) {
-            throw IllegalArgumentException("Trying to request data from non existing actor: $toActorId")
+            throw ActorRequestException(toActorId, "target actor does not exist")
         }
 
         val messageId = MessageId.next()
+        val message = Message(messageId, fromActorId, payload)
 
         @Suppress("UNCHECKED_CAST")
         return suspendCancellableCoroutine { cont ->
-            ActorKernel.putPendingResponse(messageId, fromActorId, cont as CancellableContinuation<Any?>)
+            ActorKernel.putPendingResponse(
+                messageId = messageId,
+                requesterActorId = fromActorId,
+                targetActorId = toActorId,
+                continuation = cont as CancellableContinuation<Any?>
+            )
             cont.invokeOnCancellation { ActorKernel.removePendingResponse(messageId) }
-            send(toActorId, Message(messageId, fromActorId, payload))
+
+            when (ActorKernel.queueActorMessage(toActorId, message)) {
+                QueueMessageResult.SCHEDULED_RESPONSE ->
+                    log.debug("[${messageId}] response -> scheduled continuation")
+
+                QueueMessageResult.QUEUED_TO_MAILBOX ->
+                    log.debug("[${messageId}] queued to mailbox")
+
+                QueueMessageResult.ACTOR_NOT_FOUND -> {
+                    log.warn("[${messageId}] Actor '$toActorId' not found")
+                    ActorKernel.failPendingResponse(
+                        messageId,
+                        ActorRequestException(toActorId, "target actor disappeared before request was queued")
+                    )
+                }
+            }
         }
     }
 

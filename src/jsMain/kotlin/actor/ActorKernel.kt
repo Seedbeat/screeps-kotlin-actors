@@ -9,6 +9,7 @@ import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     private val actors = mutableMapOf<String, Actor>()
@@ -27,7 +28,8 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     )
 
     private data class PendingResponseWaiter(
-        val actorId: String,
+        val requesterActorId: String,
+        val targetActorId: String,
         val continuation: CancellableContinuation<Any?>
     )
 
@@ -55,8 +57,9 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         readyActorIdsSet.remove(actorId)
         sleeping.remove(actorId)
         waitingNextTick.remove(actorId)
+        failPendingResponsesForTarget(actorId)
         pendingWaiting
-            .filterValues { it.actorId == actorId }
+            .filterValues { it.requesterActorId == actorId }
             .keys
             .forEach { messageId -> pendingWaiting.remove(messageId) }
         actors.remove(actorId)
@@ -135,14 +138,30 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         return ready.size
     }
 
-    fun putPendingResponse(messageId: String, actorId: String, continuation: CancellableContinuation<Any?>) {
+    fun putPendingResponse(
+        messageId: String,
+        requesterActorId: String,
+        targetActorId: String,
+        continuation: CancellableContinuation<Any?>
+    ) {
         log.info("[${messageId}] Set request continuation (waiting=${pendingWaiting.size + 1})")
-        pendingWaiting[messageId] = PendingResponseWaiter(actorId, continuation)
+        pendingWaiting[messageId] = PendingResponseWaiter(requesterActorId, targetActorId, continuation)
     }
 
     fun removePendingResponse(messageId: String) {
         pendingWaiting.remove(messageId)
         log.info("[${messageId}] Remove request continuation (waiting=${pendingWaiting.size})")
+    }
+
+    fun failPendingResponse(messageId: String, exception: Throwable): Boolean {
+        val waiter = pendingWaiting.remove(messageId) ?: return false
+
+        log.warn("[${messageId}] Schedule failed response continuation (waiting=${pendingWaiting.size})")
+        scheduleContinuation(waiter.requesterActorId) {
+            if (waiter.continuation.isActive)
+                waiter.continuation.resumeWithException(exception)
+        }
+        return true
     }
 
     fun flushScheduledContinuations(): Boolean {
@@ -189,11 +208,24 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         val waiter = pendingWaiting.remove(msg.messageId) ?: return false
 
         log.info("[${msg.messageId}] Schedule response continuation (scheduled=${scheduledContinuations.size + 1}, waiting=${pendingWaiting.size})")
-        scheduleContinuation(waiter.actorId) {
+        scheduleContinuation(waiter.requesterActorId) {
             if (waiter.continuation.isActive)
                 waiter.continuation.resumeWith(Result.success(response.result))
         }
         return true
+    }
+
+    private fun failPendingResponsesForTarget(actorId: String) {
+        pendingWaiting
+            .filterValues { it.targetActorId == actorId }
+            .keys
+            .toList()
+            .forEach { messageId ->
+                failPendingResponse(
+                    messageId,
+                    ActorRequestException(actorId, "target actor was removed before responding")
+                )
+            }
     }
 
     private fun scheduleContinuation(actorId: String? = null, action: () -> Unit) {
