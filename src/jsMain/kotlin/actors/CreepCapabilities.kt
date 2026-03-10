@@ -1,9 +1,6 @@
 package actors
 
-import screeps.api.CARRY
-import screeps.api.Creep
-import screeps.api.MOVE
-import screeps.api.WORK
+import screeps.api.*
 
 data class CreepCapabilities(
     val harvestPower: Int,
@@ -23,7 +20,7 @@ data class CreepCapabilities(
 
             return CreepCapabilities(
                 harvestPower = workParts,
-                carryCapacity = carryParts * 50,
+                carryCapacity = carryParts * CARRY_CAPACITY,
                 movePower = moveParts,
                 upgradePower = workParts
             )
