@@ -30,7 +30,7 @@ class CreepActor(
     }
 
     override suspend fun processCommand(msg: CreepCommand) = when (msg) {
-        CreepCommand.Noop -> Unit
+        Noop -> Unit
         is Assign -> assign(msg.assignment)
         is SetLockedResourceId -> setLockedResourceId(msg.resourceId)
         ClearAssignment -> {
