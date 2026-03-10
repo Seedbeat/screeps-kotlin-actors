@@ -1,5 +1,6 @@
 package utils
 
+import actors.base.ICodecRaw
 import screeps.api.MemoryMarker
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -48,13 +49,29 @@ open class RawMemoryMappingDelegateNullable<T>(
     }
 }
 
-fun <T : Any> rawMemoryWithSerializer(
-    default: () -> T,
+fun <T : Any> rawMemory(
     serializer: (T) -> dynamic,
-    deserializer: (dynamic) -> T
+    deserializer: (dynamic) -> T,
+    default: () -> T
 ): ReadWriteProperty<MemoryMarker, T> = RawMemoryMappingDelegate(default, serializer, deserializer)
 
-fun <T : Any> rawMemoryWithSerializer(
+fun <T : Any> rawMemory(
     serializer: (T) -> dynamic,
     deserializer: (dynamic) -> T
 ): ReadWriteProperty<MemoryMarker, T?> = RawMemoryMappingDelegateNullable(serializer, deserializer)
+
+fun <T> rawMemory(
+    codec: ICodecRaw<T>,
+    default: () -> T
+): ReadWriteProperty<MemoryMarker, T> = RawMemoryMappingDelegate(
+    default,
+    serializer = codec::serializeRaw,
+    deserializer = codec::deserializeRaw
+)
+
+fun <T : Any> rawMemory(
+    codec: ICodecRaw<T>
+): ReadWriteProperty<MemoryMarker, T?> = RawMemoryMappingDelegateNullable(
+    serializer = codec::serializeRaw,
+    deserializer = codec::deserializeRaw
+)

@@ -1,14 +1,17 @@
 package actor
 
-object KernelSnapshotCodec {
+import actors.base.ICodecJson
+import actors.base.ICodecRaw
 
-    fun toRaw(snapshot: KernelSnapshot): dynamic {
+object KernelSnapshotCodec : ICodecRaw<KernelSnapshot>, ICodecJson<KernelSnapshot> {
+
+    override fun serializeRaw(data: KernelSnapshot): dynamic {
 
 //        console.log("toRaw", snapshot)
 
         val root = js("{}")
-        root.time = snapshot.time
-        root.actors = snapshot.actors.map { actor ->
+        root.time = data.time
+        root.actors = data.actors.map { actor ->
             val plain = js("{}")
             plain.id = actor.id
             plain.type = actor.type
@@ -18,12 +21,7 @@ object KernelSnapshotCodec {
         return root
     }
 
-    fun toJson(snapshot: KernelSnapshot): String {
-        val raw = toRaw(snapshot)
-        return JSON.stringify(raw)
-    }
-
-    fun fromRaw(raw: dynamic): KernelSnapshot = try {
+    override fun deserializeRaw(raw: dynamic): KernelSnapshot = try {
         val rawActors = (raw.actors as? Array<dynamic>) ?: emptyArray()
 
         val snapshot = KernelSnapshot(
@@ -43,9 +41,14 @@ object KernelSnapshotCodec {
         KernelSnapshot()
     }
 
-    fun fromJson(json: String): KernelSnapshot = try {
+    override fun serializeJson(data: KernelSnapshot): String {
+        val raw = serializeRaw(data)
+        return JSON.stringify(raw)
+    }
+
+    override fun deserializeJson(json: String): KernelSnapshot = try {
         val raw = JSON.parse<dynamic>(json)
-        fromRaw(raw)
+        deserializeRaw(raw)
     } catch (_: Throwable) {
         KernelSnapshot()
     }
