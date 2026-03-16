@@ -1,8 +1,8 @@
 package actor
 
-import actor.message.IMessage
-import actor.message.IPayload
-import actor.message.IRequest
+import actor.message.Message
+import actor.message.Payload
+import actor.message.Request
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import utils.log.ILogging
@@ -22,7 +22,7 @@ abstract class Actor(val id: String) : ILogging {
             log.info("[Lifecycle] Finished: $result")
         }
     })
-    private val mailbox = mutableListOf<IMessage>()
+    private val mailbox = mutableListOf<Message>()
 
     fun start() {
         log.info("[Lifecycle] Started")
@@ -46,13 +46,13 @@ abstract class Actor(val id: String) : ILogging {
         }
     }
 
-    suspend fun <T : IMessage> receive(): T = suspendCancellableCoroutine { continuation ->
+    suspend fun <T : Message> receive(): T = suspendCancellableCoroutine { continuation ->
         if (mailbox.isNotEmpty()) {
             log.debug("[Scheduler] waiting receive() (mailboxSize=${mailbox.size})")
         }
 
         @Suppress("UNCHECKED_CAST")
-        ActorSystem.onActorWaitingReceive(this, continuation as CancellableContinuation<IMessage>)
+        ActorSystem.onActorWaitingReceive(this, continuation as CancellableContinuation<Message>)
         continuation.invokeOnCancellation {
             ActorSystem.removeActorReceiveWaiter(id)
         }
@@ -80,15 +80,15 @@ abstract class Actor(val id: String) : ILogging {
         nextTick(1)
     }
 
-    fun sendTo(actorId: String, payload: IPayload, messageId: String? = null) {
+    fun sendTo(actorId: String, payload: Payload, messageId: String? = null) {
         ActorSystem.send(actorId, id, payload, messageId)
     }
 
-    suspend fun <T> requestFrom(actorId: String, payload: IRequest): T {
+    suspend fun <T> requestFrom(actorId: String, payload: Request): T {
         return ActorSystem.request(actorId, id, payload)
     }
 
-    fun queueMessage(message: IMessage): Boolean {
+    fun queueMessage(message: Message): Boolean {
         val result = mailbox.add(message)
         log.debug("[${message.messageId}] Queued new message (mailboxSize=${mailbox.size})")
         return result
@@ -96,7 +96,7 @@ abstract class Actor(val id: String) : ILogging {
 
     fun haveMessages() = mailbox.isNotEmpty()
 
-    fun pollMessage(): IMessage? {
+    fun pollMessage(): Message? {
         if (mailbox.isEmpty()) return null
 
         val message = mailbox.removeAt(0)

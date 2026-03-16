@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.ICommand
+import actor.message.Command
 
-sealed class CreepCommand : ICommand {
+sealed class CreepCommand : Command {
     data object Noop : CreepCommand()
 
     data class Assign(

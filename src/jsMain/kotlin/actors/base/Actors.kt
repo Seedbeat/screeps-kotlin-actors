@@ -1,7 +1,7 @@
  package actors.base
 
 import actor.ActorSystem
-import actor.message.IPayload
+import actor.message.Payload
 import actors.SystemActor
 import screeps.api.Game
 
@@ -18,7 +18,7 @@ object Actors {
         ActorSystem.tick()
     }
 
-    private fun systemMessage(msg: IPayload) {
+    private fun systemMessage(msg: Payload) {
         ActorSystem.send(SYSTEM, SYSTEM, msg)
     }
 }

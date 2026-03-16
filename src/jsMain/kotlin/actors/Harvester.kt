@@ -4,8 +4,8 @@ import actors.HarvesterCommand.Harvest
 import actors.HarvesterCommand.Transfer
 import actors.HarvesterRequest.GetEnergy
 import actors.HarvesterResponse.EnergyResponse
+import actors.base.ActorBinding
 import actors.base.GameObjectBinding
-import actors.base.IActorBinding
 import screeps.api.Creep
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -13,7 +13,7 @@ import utils.log.Logging
 
 class Harvester(id: String) :
     ActorBase<Creep, HarvesterCommand, HarvesterRequest, HarvesterResponse<*>>(id),
-    IActorBinding<Creep> by GameObjectBinding(id),
+    ActorBinding<Creep> by GameObjectBinding(id),
     ILogging by Logging<Harvester>(id, LogLevel.INFO) {
 
 

@@ -1,12 +1,12 @@
 package actors.memory.delegates
 
-import actors.base.ICodec
+import actors.base.Codec
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 abstract class CodecValueDelegate<R, T : Any>(
     private val default: T,
-    private val codec: ICodec<T>
+    private val codec: Codec<T>
 ) : ReadWriteProperty<R, T>, MemoryIO<R> {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
@@ -25,7 +25,7 @@ abstract class CodecValueDelegate<R, T : Any>(
 }
 
 abstract class NullableCodecValueDelegate<R, T>(
-    private val codec: ICodec<T>
+    private val codec: Codec<T>
 ) : ReadWriteProperty<R, T?>, MemoryIO<R> {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T? {

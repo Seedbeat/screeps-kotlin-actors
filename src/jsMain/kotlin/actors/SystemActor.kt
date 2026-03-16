@@ -16,8 +16,8 @@ import utils.log.Logging
 
 class SystemActor(id: String) :
     ActorBase<Unit, SystemCommand, SystemRequest, SystemResponse<*>>(id),
-    IActorBinding<Unit> by NoBinding,
-    IChildrenMultiManager,
+    ActorBinding<Unit> by NoBinding,
+    ChildrenMultiManager,
     ILogging by Logging<SystemActor>(LogLevel.INFO) {
 
     override val managers = mapOf(

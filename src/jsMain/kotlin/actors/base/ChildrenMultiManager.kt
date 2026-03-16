@@ -1,12 +1,12 @@
 package actors.base
 
 import actor.Actor
-import actor.message.IPayload
+import actor.message.Payload
 
-interface IChildrenMultiManager {
-    val managers: Map<String, IChildrenManager<*>>
+interface ChildrenMultiManager {
+    val managers: Map<String, ChildrenManager<*>>
 
-    fun broadcast(self: Actor, payload: IPayload) = managers.values.forEach {
+    fun broadcast(self: Actor, payload: Payload) = managers.values.forEach {
         it.broadcast(self, payload)
     }
 

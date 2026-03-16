@@ -1,16 +1,16 @@
 package actors
 
-import actor.message.ICommand
-import actor.message.IRequest
-import actor.message.IResponse
-import actors.base.IIntent
+import actor.message.Command
+import actor.message.Request
+import actor.message.Response
+import actors.base.Intent
 
 abstract class ActorIntentQueueBase<
         ObjectType,
-        CommandType : ICommand,
-        IntentType : IIntent,
-        RequestType : IRequest,
-        ResponseType : IResponse<*>>(
+        CommandType : Command,
+        IntentType : Intent,
+        RequestType : Request,
+        ResponseType : Response<*>>(
     id: String
 ) : ActorIntentBase<ObjectType, CommandType, IntentType, RequestType, ResponseType>(id) {
     protected val pendingIntents = linkedMapOf<String, IntentType>()

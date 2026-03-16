@@ -2,20 +2,20 @@ package actors
 
 import actor.Actor
 import actor.message.*
-import actors.base.IActorBinding
+import actors.base.ActorBinding
 import actors.base.Lifecycle
 
 abstract class ActorBase<
         ObjectType,
-        CommandType : ICommand,
-        RequestType : IRequest,
-        ResponseType : IResponse<*>>(
+        CommandType : Command,
+        RequestType : Request,
+        ResponseType : Response<*>>(
     id: String
-) : Actor(id), IActorBinding<ObjectType> {
+) : Actor(id), ActorBinding<ObjectType> {
 
     override suspend fun run() {
         while (true) {
-            val msg = receive<IMessage>()
+            val msg = receive<Message>()
             log.debug("[${msg.messageId}]: received new message from '${msg.from}'")
 
             try {
@@ -32,19 +32,19 @@ abstract class ActorBase<
         }
     }
 
-    suspend fun onReceive(msg: IPayload): ResponseType? = when (msg) {
+    suspend fun onReceive(msg: Payload): ResponseType? = when (msg) {
         is Lifecycle -> {
             processLifecycle(msg)
             null
         }
 
-        is ICommand -> {
+        is Command -> {
             @Suppress("UNCHECKED_CAST")
             processCommand((msg as CommandType))
             null
         }
 
-        is IRequest -> {
+        is Request -> {
             @Suppress("UNCHECKED_CAST")
             processRequest((msg as RequestType))
         }

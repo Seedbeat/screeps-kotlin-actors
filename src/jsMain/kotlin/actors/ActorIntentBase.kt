@@ -1,17 +1,17 @@
 package actors
 
-import actor.message.ICommand
-import actor.message.IRequest
-import actor.message.IResponse
-import actors.base.IIntent
+import actor.message.Command
+import actor.message.Request
+import actor.message.Response
+import actors.base.Intent
 import actors.base.IntentResultType
 
 abstract class ActorIntentBase<
         ObjectType,
-        CommandType : ICommand,
-        IntentType : IIntent,
-        RequestType : IRequest,
-        ResponseType : IResponse<*>>(
+        CommandType : Command,
+        IntentType : Intent,
+        RequestType : Request,
+        ResponseType : Response<*>>(
     id: String
 ) : ActorBase<ObjectType, CommandType, RequestType, ResponseType>(id) {
 

@@ -7,8 +7,8 @@ import actors.CreepResponse.UnassignResponse
 import actors.RoomRequest.ReleaseResource
 import actors.RoomRequest.TryAcquireResource
 import actors.assignments.ControllerUpkeepPhase
+import actors.base.ActorBinding
 import actors.base.GameCreepBinding
-import actors.base.IActorBinding
 import actors.base.Lifecycle
 import creep.enums.State
 import memory.assignment
@@ -24,7 +24,7 @@ import utils.log.Logging
 class CreepActor(
     id: String
 ) : ActorBase<Creep, CreepCommand, CreepRequest, CreepResponse<*>>(id),
-    IActorBinding<Creep> by GameCreepBinding(id),
+    ActorBinding<Creep> by GameCreepBinding(id),
     ILogging by Logging<CreepActor>(id, LogLevel.INFO) {
 
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {

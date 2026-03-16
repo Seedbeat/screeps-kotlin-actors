@@ -1,8 +1,8 @@
 package actors.memory.codecs
 
-import actors.base.ICodec
+import actors.base.Codec
 
-class RawCodec<T> : ICodec<T> {
+class RawCodec<T> : Codec<T> {
     override fun serialize(data: T): dynamic = data
     override fun deserialize(raw: dynamic): T = raw.unsafeCast<T>()
 }

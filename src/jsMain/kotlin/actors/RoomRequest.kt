@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IRequest
+import actor.message.Request
 
-sealed class RoomRequest : IRequest {
+sealed class RoomRequest : Request {
     data object StatusRequest : RoomRequest()
 
     data class TryAcquireResource(

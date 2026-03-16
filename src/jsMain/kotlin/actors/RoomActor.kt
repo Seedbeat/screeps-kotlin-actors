@@ -18,8 +18,8 @@ import utils.log.Logging
 class RoomActor(
     id: String
 ) : ActorIntentQueueBase<Room, RoomCommand, RoomIntent, RoomRequest, RoomResponse<*>>(id),
-    IActorBinding<Room> by GameRoomBinding(id),
-    IChildrenMultiManager,
+    ActorBinding<Room> by GameRoomBinding(id),
+    ChildrenMultiManager,
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
 
     companion object {

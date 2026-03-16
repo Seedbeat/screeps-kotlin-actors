@@ -1,7 +1,7 @@
 package actors
 
-import actor.message.ICommand
+import actor.message.Command
 
-sealed class SystemCommand : ICommand {
+sealed class SystemCommand : Command {
     data object Noop : SystemCommand()
 }

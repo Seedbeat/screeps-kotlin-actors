@@ -1,6 +1,6 @@
 package actors.memory.delegates
 
-import actors.base.ICodec
+import actors.base.Codec
 import actors.memory.MemoryNode
 import actors.memory.codecs.RawCodec
 import actors.memory.codecs.enumCodec
@@ -10,7 +10,7 @@ import kotlin.reflect.KProperty
 
 class MemoryNodeValueDelegate<T : Any>(
     default: T,
-    codec: ICodec<T>
+    codec: Codec<T>
 ) : CodecValueDelegate<MemoryNode<*>, T>(default, codec),
     MemoryIO<MemoryNode<*>> by MemoryNodeIO
 

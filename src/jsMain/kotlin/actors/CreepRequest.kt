@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IRequest
+import actor.message.Request
 
-sealed class CreepRequest : IRequest {
+sealed class CreepRequest : Request {
     data object StatusRequest : CreepRequest()
     data object Unassign : CreepRequest()
 }

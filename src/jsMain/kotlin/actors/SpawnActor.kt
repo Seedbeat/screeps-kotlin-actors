@@ -3,9 +3,9 @@ package actors
 import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.SystemRequest.CountCreeps
+import actors.base.ActorBinding
 import actors.base.Actors
 import actors.base.GameObjectBinding
-import actors.base.IActorBinding
 import creep.enums.Role
 import memory.assignment
 import screeps.api.CreepMemory
@@ -19,7 +19,7 @@ import utils.log.Logging
 class SpawnActor(
     id: String
 ) : ActorBase<StructureSpawn, SpawnCommand, SpawnRequest, SpawnResponse<*>>(id),
-    IActorBinding<StructureSpawn> by GameObjectBinding(id),
+    ActorBinding<StructureSpawn> by GameObjectBinding(id),
     ILogging by Logging.Companion<SpawnActor>(id, LogLevel.INFO) {
 
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {

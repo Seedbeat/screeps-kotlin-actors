@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IResponse
+import actor.message.Response
 
-sealed class SystemResponse<T> : IResponse<T> {
+sealed class SystemResponse<T> : Response<T> {
     data class CountCreepsResponse(
         override val result: Int
     ) : SystemResponse<Int>()

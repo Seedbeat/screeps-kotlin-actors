@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IRequest
+import actor.message.Request
 
-sealed class HarvesterRequest : IRequest {
+sealed class HarvesterRequest : Request {
 
     class GetEnergy : HarvesterRequest()
 }

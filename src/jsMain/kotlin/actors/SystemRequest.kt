@@ -1,9 +1,9 @@
 package actors
 
-import actor.message.IRequest
+import actor.message.Request
 import creep.enums.Role
 
-sealed class SystemRequest : IRequest {
+sealed class SystemRequest : Request {
     data class CountCreeps(
         val homeRoom: String? = null,
         val currentRoom: String? = null,

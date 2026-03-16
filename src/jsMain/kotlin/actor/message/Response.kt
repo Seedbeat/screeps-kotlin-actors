@@ -1,5 +1,5 @@
 package actor.message
 
-interface IResponse<T> : IPayload {
+interface Response<T> : Payload {
     val result: T
 }

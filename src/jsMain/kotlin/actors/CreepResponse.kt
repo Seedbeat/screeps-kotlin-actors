@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IResponse
+import actor.message.Response
 
-sealed class CreepResponse<T> : IResponse<T> {
+sealed class CreepResponse<T> : Response<T> {
     data class StatusResponse(override val result: CreepStatus) : CreepResponse<CreepStatus>()
     data class UnassignResponse(override val result: Boolean) : CreepResponse<Boolean>()
 }

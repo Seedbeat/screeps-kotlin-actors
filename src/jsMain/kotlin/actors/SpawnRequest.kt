@@ -1,9 +1,9 @@
 package actors
 
-import actor.message.IRequest
+import actor.message.Request
 import creep.enums.Role
 
-sealed class SpawnRequest : IRequest {
+sealed class SpawnRequest : Request {
 
     data class PopulationRequest(
         val role: Role

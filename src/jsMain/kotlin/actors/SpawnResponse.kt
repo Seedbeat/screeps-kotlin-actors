@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.IResponse
+import actor.message.Response
 
-sealed class SpawnResponse<T> : IResponse<T> {
+sealed class SpawnResponse<T> : Response<T> {
 
     data class PopulationResponse(
         override val result: Int

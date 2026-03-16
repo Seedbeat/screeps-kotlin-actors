@@ -1,8 +1,8 @@
 package actor
 
 import actor.enums.QueueMessageResult
-import actor.message.IMessage
-import actor.message.IResponse
+import actor.message.Message
+import actor.message.Response
 import kotlinx.coroutines.CancellableContinuation
 import screeps.api.Game
 import utils.log.ILogging
@@ -16,7 +16,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     private val readyActorIdsQueue = ArrayDeque<String>()
     private val readyActorIdsSet = mutableSetOf<String>()
 
-    private val sleeping = mutableMapOf<String, CancellableContinuation<IMessage>>()
+    private val sleeping = mutableMapOf<String, CancellableContinuation<Message>>()
 
     private val pendingWaiting = mutableMapOf<String, PendingResponseWaiter>()
     private val scheduledContinuations = ArrayDeque<ScheduledContinuation>()
@@ -81,7 +81,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         }
     }
 
-    fun queueActorMessage(actorId: String, msg: IMessage): QueueMessageResult {
+    fun queueActorMessage(actorId: String, msg: Message): QueueMessageResult {
         if (trySchedulePendingResponse(msg))
             return QueueMessageResult.SCHEDULED_RESPONSE
 
@@ -94,7 +94,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         return QueueMessageResult.QUEUED_TO_MAILBOX
     }
 
-    fun onActorWaitingReceive(actor: Actor, continuation: CancellableContinuation<IMessage>) {
+    fun onActorWaitingReceive(actor: Actor, continuation: CancellableContinuation<Message>) {
         sleeping[actor.id] = continuation
         enqueueReadyActor(actor)
     }
@@ -203,8 +203,8 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
         return false
     }
 
-    private fun trySchedulePendingResponse(msg: IMessage): Boolean {
-        val response = msg.payload as? IResponse<*> ?: return false
+    private fun trySchedulePendingResponse(msg: Message): Boolean {
+        val response = msg.payload as? Response<*> ?: return false
         val waiter = pendingWaiting.remove(msg.messageId) ?: return false
 
         log.info("[${msg.messageId}] Schedule response continuation (scheduled=${scheduledContinuations.size + 1}, waiting=${pendingWaiting.size})")

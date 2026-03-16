@@ -1,9 +1,9 @@
 package actors
 
-import actors.base.IIntent
+import actors.base.Intent
 import actors.base.IntentPriority
 
-sealed class RoomIntent : RoomCommand(), IIntent {
+sealed class RoomIntent : RoomCommand(), Intent {
     data class EnsureControllerSurvival(
         override val priority: IntentPriority,
         override val createdTick: Int,

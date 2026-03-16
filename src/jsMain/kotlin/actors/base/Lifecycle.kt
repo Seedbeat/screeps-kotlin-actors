@@ -1,8 +1,8 @@
 package actors.base
 
-import actor.message.ICommand
+import actor.message.Command
 
-sealed class Lifecycle : ICommand {
+sealed class Lifecycle : Command {
     data class Tick(val time: Int) : Lifecycle()
     data object Bootstrap : Lifecycle()
 }

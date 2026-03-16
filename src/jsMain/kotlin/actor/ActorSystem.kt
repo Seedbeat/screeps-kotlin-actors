@@ -2,10 +2,10 @@ package actor
 
 import Root
 import actor.enums.QueueMessageResult
-import actor.message.IMessage
-import actor.message.IPayload
-import actor.message.IRequest
+import actor.message.BaseMessage
 import actor.message.Message
+import actor.message.Payload
+import actor.message.Request
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import memory.actorKernelSnapshot
@@ -43,7 +43,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         return actor.id
     }
 
-    fun send(actorId: String, msg: IMessage) {
+    fun send(actorId: String, msg: Message) {
         log.info("[${msg.messageId}] '${msg.from}' -> '$actorId': ${msg.payload}")
 
         when (ActorKernel.queueActorMessage(actorId, msg)) {
@@ -58,19 +58,19 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         }
     }
 
-    fun send(toActorId: String, fromActorId: String, payload: IPayload, messageId: String? = null) {
+    fun send(toActorId: String, fromActorId: String, payload: Payload, messageId: String? = null) {
         val id = messageId ?: MessageId.next()
-        send(toActorId, Message(id, fromActorId, payload))
+        send(toActorId, BaseMessage(id, fromActorId, payload))
     }
 
-    suspend fun <T> request(toActorId: String, fromActorId: String, payload: IRequest): T {
+    suspend fun <T> request(toActorId: String, fromActorId: String, payload: Request): T {
 
         if (!contains(toActorId)) {
             throw ActorRequestException(toActorId, "target actor does not exist")
         }
 
         val messageId = MessageId.next()
-        val message = Message(messageId, fromActorId, payload)
+        val message = BaseMessage(messageId, fromActorId, payload)
 
         @Suppress("UNCHECKED_CAST")
         return suspendCancellableCoroutine { cont ->
@@ -100,7 +100,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         }
     }
 
-    fun onActorWaitingReceive(actor: Actor, continuation: CancellableContinuation<IMessage>) {
+    fun onActorWaitingReceive(actor: Actor, continuation: CancellableContinuation<Message>) {
         ActorKernel.onActorWaitingReceive(actor, continuation)
     }
 

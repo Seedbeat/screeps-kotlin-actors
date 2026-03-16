@@ -1,8 +1,8 @@
 package actors.base
 
-import actor.message.ICommand
+import actor.message.Command
 
-interface IIntent : ICommand {
+interface Intent : Command {
     val intentId: String
     val priority: IntentPriority
     val createdTick: Int

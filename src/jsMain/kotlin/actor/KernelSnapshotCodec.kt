@@ -1,8 +1,8 @@
 package actor
 
-import actors.base.ICodec
+import actors.base.Codec
 
-object KernelSnapshotCodec : ICodec<KernelSnapshot> {
+object KernelSnapshotCodec : Codec<KernelSnapshot> {
 
     override fun serialize(data: KernelSnapshot): dynamic {
 

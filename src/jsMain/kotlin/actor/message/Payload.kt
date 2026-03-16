@@ -1,3 +1,3 @@
 package actor.message
 
-interface IPayload
+interface Payload

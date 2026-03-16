@@ -1,8 +1,8 @@
 package actors
 
-import actor.message.ICommand
+import actor.message.Command
 
-sealed class HarvesterCommand : ICommand {
+sealed class HarvesterCommand : Command {
 
     data class Harvest(
         val sourceId: String
