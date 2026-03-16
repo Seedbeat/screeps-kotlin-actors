@@ -2,7 +2,6 @@ package spawn
 
 import creep.enums.CreepType
 import creep.enums.Role
-import memory.assignmentRoom
 import memory.createCreepMemory
 import memory.homeRoom
 import screeps.api.*
@@ -64,9 +63,7 @@ object Spawner : ILogging by Logging<Spawner>() {
             options<SpawnOptions> {
                 this.memory = createCreepMemory(type, role) {
                     homeRoom = this@spawnCreep.room.name
-                    assignmentRoom = this@spawnCreep.room.name
-                    memory()
-                }
+                }.also(memory)
             }.also(opt)
         ) to name
     }

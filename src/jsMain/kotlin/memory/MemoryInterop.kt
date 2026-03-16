@@ -11,7 +11,6 @@ import utils.log.ILogging
 import utils.log.Logging
 import kotlin.reflect.KCallable
 
-
 fun Memory.delete(item: KCallable<*>) =
     MemoryInterop.deleteByPath(item)
 

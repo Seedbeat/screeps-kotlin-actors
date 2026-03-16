@@ -57,8 +57,8 @@ Use these meanings consistently:
 
 - `CreepMemory.homeRoom`
   - persistent room affiliation for room-level ownership and population planning
-- `CreepMemory.assignmentRoom`
-  - persistent task-assignment room
+- `CreepMemory.assignment.roomName`
+  - persistent task-assignment room owned by the assignment state
 - `Game.creeps[name].room.name`
   - live current room
 
@@ -128,7 +128,8 @@ Current state:
 - `ActorSystem.tick()` writes `Memory.actorKernelSnapshot`
 - `ActorKernel.snapshot()` stores actor ids and actor type names
 - `ActorKernel.restore()` does not rehydrate actor instances yet
-- creep affiliation persists through `CreepMemory.homeRoom` and `CreepMemory.assignmentRoom`
+- creep affiliation persists through `CreepMemory.homeRoom`
+- assignment-owned room affinity persists through `CreepMemory.assignment.roomName`
 - creep assignment state for actor-owned behavior is persisted through creep memory fields
 
 Implications:
@@ -138,13 +139,15 @@ Implications:
 - current room position should be derived from `Game`, not persisted as actor truth
 - if assignment or phase is persisted in creep memory, keep it reconstructible from explicit fields rather than opaque serialized objects
 - if you add persistent actor state, you must define restore behavior as well
+- migration work is logic-first, not backward-data-compatible by default
+- do not complicate new runtime code to preserve obsolete legacy memory shapes
+- prefer a correct, simple, optimized data shape for the new runtime over compatibility with old transient fields
 
 If you change persistence:
 
 - document the schema change
 - explain reset behavior
-- document any migration or backfill for new memory fields
-- avoid silent incompatibilities with existing memory
+- document any migration or reset expectation only when it is intentionally part of the new runtime design
 
 ---
 
@@ -179,6 +182,12 @@ When moving behavior:
 3. express orchestration through actor commands, requests, or intents
 4. keep direct memory mutation localized and explicit
 5. preserve gameplay semantics unless redesign is explicitly requested
+
+Migration priorities:
+
+- preserve and improve the new runtime semantics, not legacy data compatibility
+- optimize for correctness, clear ownership, and low cognitive load in the new actor path
+- do not keep transitional fields, fallback decoders, or compatibility branches unless they are required by the active runtime
 
 Preferred ownership:
 

@@ -2,9 +2,9 @@ package memory
 
 import actor.KernelSnapshot
 import actor.KernelSnapshotCodec
+import actors.memory.delegates.memoryObject
+import actors.memory.delegates.memoryValue
 import screeps.api.GlobalMemory
-import screeps.utils.memory.memory
-import utils.rawMemory
 
-var GlobalMemory.isUpdateNeed: Boolean by memory { false }
-var GlobalMemory.actorKernelSnapshot: KernelSnapshot? by rawMemory(KernelSnapshotCodec)
+var GlobalMemory.isUpdateNeed: Boolean by memoryValue { false }
+var GlobalMemory.actorKernelSnapshot: KernelSnapshot? by memoryObject(KernelSnapshotCodec)

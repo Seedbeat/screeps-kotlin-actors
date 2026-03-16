@@ -11,7 +11,10 @@ import actors.base.GameCreepBinding
 import actors.base.IActorBinding
 import actors.base.Lifecycle
 import creep.enums.State
-import memory.*
+import memory.assignment
+import memory.homeRoom
+import memory.lockedObjectId
+import memory.state
 import screeps.api.*
 import screeps.api.structures.StructureController
 import utils.log.ILogging
@@ -49,7 +52,7 @@ class CreepActor(
     }
 
     private suspend fun executeAssignment() {
-        when (val assignment = self.memory.assignmentOrNull()) {
+        when (val assignment = self.memory.assignment.read()) {
             null -> {
                 self.memory.state = State.UNASSIGNED
                 releaseLockedResourceIfHeld()
@@ -61,7 +64,7 @@ class CreepActor(
 
     private suspend fun assign(assignment: CreepAssignment) {
         releaseLockedResourceIfHeld()
-        self.memory.setAssignment(assignment)
+        self.memory.assignment.write(assignment)
         self.memory.state = State.UNASSIGNED
     }
 
@@ -75,7 +78,7 @@ class CreepActor(
             return
         }
 
-        when (creepMemory.controllerUpkeepPhase()) {
+        when (creepMemory.assignment.phase) {
             ControllerUpkeepPhase.HARVEST -> executeHarvestPhase(assignment, source)
             ControllerUpkeepPhase.UPGRADE -> executeUpgradePhase(assignment, controller)
         }
@@ -101,7 +104,6 @@ class CreepActor(
         }
 
         self.memory.state = State.SOURCE_WORK
-        self.memory.workObjectId = source.id
 
         if (source.energy <= 0 && usedCapacity > 0) {
             switchToUpgradePhase()
@@ -150,7 +152,6 @@ class CreepActor(
         }
 
         self.memory.state = State.TARGET_WORK
-        self.memory.workObjectId = controller.id
 
         when (val code = self.upgradeController(controller)) {
             OK -> {
@@ -203,23 +204,20 @@ class CreepActor(
 
     private suspend fun switchToHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
         releaseLockedResourceIfHeld()
-        self.memory.controllerUpkeepPhase(ControllerUpkeepPhase.HARVEST)
+        self.memory.assignment.phase = ControllerUpkeepPhase.HARVEST
         self.memory.state = State.UNASSIGNED
-        self.memory.assignmentRoom = assignment.roomName
     }
 
     private suspend fun switchToUpgradePhase() {
         releaseLockedResourceIfHeld()
-        self.memory.controllerUpkeepPhase(ControllerUpkeepPhase.UPGRADE)
+        self.memory.assignment.phase = ControllerUpkeepPhase.UPGRADE
         self.memory.state = State.UNASSIGNED
     }
 
     private suspend fun clearAssignmentState(): Boolean {
         releaseLockedResourceIfHeld()
-
-        val creepMemory = self.memory
-        creepMemory.state = State.UNASSIGNED
-        creepMemory.clearAssignment()
+        self.memory.state = State.UNASSIGNED
+        self.memory.assignment.clear()
         setLockedResourceId(null)
         return true
     }
@@ -230,8 +228,7 @@ class CreepActor(
 
     private suspend fun releaseLockedResourceIfHeld() {
         val resourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() } ?: return
-        val roomName = self.memory.assignmentOrNull()?.roomName
-            ?: self.memory.assignmentRoom.takeIf { it.isNotBlank() }
+        val roomName = self.memory.assignment.read()?.roomName
             ?: selfOrNull?.room?.name
             ?: return
 
@@ -248,16 +245,15 @@ class CreepActor(
     private fun clearDestroyedAssignmentState() {
         val creepMemory = selfOrNull?.memory ?: Memory.creeps[id] ?: return
         creepMemory.state = State.UNASSIGNED
-        creepMemory.clearAssignment()
+        creepMemory.assignment.clear()
         creepMemory.lockedObjectId = ""
     }
 
     private fun status(): CreepStatus = CreepStatus(
         actorId = id,
         homeRoom = self.memory.homeRoom,
-        assignmentRoom = self.memory.assignmentRoom,
         currentRoom = self.room.name,
-        assignment = self.memory.assignmentOrNull(),
+        assignment = self.memory.assignment.read(),
         capabilities = CreepCapabilities.from(self),
         lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotBlank() }
     )

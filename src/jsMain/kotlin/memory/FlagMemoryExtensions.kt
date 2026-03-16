@@ -1,6 +1,6 @@
 package memory
 
+import actors.memory.delegates.memoryValue
 import screeps.api.FlagMemory
-import screeps.utils.memory.memory
 
-var FlagMemory.test: Int by memory { 0 }
+var FlagMemory.test: Int by memoryValue { 0 }

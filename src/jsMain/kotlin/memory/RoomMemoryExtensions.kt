@@ -1,14 +1,15 @@
 package memory
 
+import actors.memory.delegates.memoryEnum
+import actors.memory.delegates.memoryValue
 import room.RoomStage
 import screeps.api.RoomMemory
-import screeps.utils.memory.memory
 import utils.ResourceLockOwners
 import utils.Semaphore
 
-var RoomMemory.resourceSemaphore: Semaphore by memory { Semaphore() }
-var RoomMemory.resourceLockOwners: ResourceLockOwners by memory { ResourceLockOwners() }
-var RoomMemory.stage by memory(RoomStage.Uninitialized)
+var RoomMemory.resourceSemaphore: Semaphore by memoryValue { Semaphore() }
+var RoomMemory.resourceLockOwners: ResourceLockOwners by memoryValue { ResourceLockOwners() }
+var RoomMemory.stage: RoomStage by memoryEnum { RoomStage.Uninitialized }
 
 // TODO
 //var RoomMemory.missions: Array<String> by memory { arrayOf() }

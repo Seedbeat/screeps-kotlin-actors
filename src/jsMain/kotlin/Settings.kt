@@ -1,5 +1,5 @@
+import actors.memory.delegates.memoryValue
 import screeps.api.*
-import screeps.utils.memory.memory
 import screeps.utils.mutableRecordOf
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -14,7 +14,7 @@ sealed class Settings<T : Any>(val defaultValue: T) {
 
     companion object : ILogging by Logging(Settings::class.simpleName!!) {
 
-        val GlobalMemory.settings: MutableRecord<String, Any> by memory { mutableRecordOf() }
+        val GlobalMemory.settings: MutableRecord<String, Any> by memoryValue { mutableRecordOf() }
 
         inline operator fun <reified T : Enum<T>> get(parameter: Settings<T>): T =
             getInternal(parameter) { enumValueOf<T>(it.unsafeCast<String>()) }

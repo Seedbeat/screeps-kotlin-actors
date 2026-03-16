@@ -35,7 +35,6 @@ class SystemActor(id: String) :
 
         syncChildren()
         cleanupStaleCreepMemory()
-        backfillCreepAffiliation()
         broadcast(this, msg)
     }
 
@@ -44,7 +43,6 @@ class SystemActor(id: String) :
 
         syncChildren()
         cleanupStaleCreepMemory()
-        backfillCreepAffiliation()
         broadcast(this, Lifecycle.Bootstrap)
     }
 
@@ -55,32 +53,36 @@ class SystemActor(id: String) :
     override suspend fun processRequest(msg: SystemRequest): SystemResponse<*> = when (msg) {
         is CountCreeps -> CountCreepsResponse(
             result = Game.creeps.keys.count { name ->
-                val creep = Game.creeps[name] ?: return@count false
+                val creep = Game.creeps[name]
+                    ?: return@count false
+
                 (msg.homeRoom == null || creep.memory.homeRoom == msg.homeRoom) &&
                         (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
-                        (msg.assignmentRoom == null || creep.memory.assignmentRoom == msg.assignmentRoom) &&
+                        (msg.assignmentRoom == null || creep.memory.assignment.roomName == msg.assignmentRoom) &&
                         (msg.role == null || creep.memory.role == msg.role)
             }
         )
         is QueryCreeps -> QueryCreepsResponse(
             result = Game.creeps.keys.mapNotNull { name ->
-                val creep = Game.creeps[name] ?: return@mapNotNull null
+                val creep = Game.creeps[name]
+                    ?: return@mapNotNull null
+
                 if (msg.homeRoom != null && creep.memory.homeRoom != msg.homeRoom) {
                     return@mapNotNull null
                 }
                 if (msg.currentRoom != null && creep.room.name != msg.currentRoom) {
                     return@mapNotNull null
                 }
-                if (msg.assignmentRoom != null && creep.memory.assignmentRoom != msg.assignmentRoom) {
+                val assignment = creep.memory.assignment.read()
+                if (msg.assignmentRoom != null && assignment?.roomName != msg.assignmentRoom) {
                     return@mapNotNull null
                 }
 
                 CreepStatus(
                     actorId = name,
                     homeRoom = creep.memory.homeRoom,
-                    assignmentRoom = creep.memory.assignmentRoom,
                     currentRoom = creep.room.name,
-                    assignment = creep.memory.assignmentOrNull(),
+                    assignment = assignment,
                     capabilities = CreepCapabilities.from(creep),
                     lockedResourceId = creep.memory.lockedObjectId.takeIf { it.isNotBlank() }
                 )
@@ -99,21 +101,5 @@ class SystemActor(id: String) :
                 log.info("Deleting stale creep memory: $name")
                 Memory.creeps.delete(name)
             }
-    }
-
-    private fun backfillCreepAffiliation() {
-        Game.creeps.keys.forEach { name ->
-            val creep = Game.creeps[name] ?: return@forEach
-            val creepMemory = creep.memory
-
-            if (creepMemory.homeRoom.isBlank()) {
-                creepMemory.homeRoom = creep.room.name
-                log.warn("[Migration] Backfilled homeRoom for creep '$name' with '${creep.room.name}'")
-            }
-
-            if (creepMemory.assignmentRoom.isBlank()) {
-                creepMemory.assignmentRoom = creepMemory.homeRoom
-            }
-        }
     }
 }

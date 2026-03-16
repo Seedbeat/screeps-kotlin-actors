@@ -1,5 +1,6 @@
 package scheduler.events
 
+import Root
 import creep.enums.Role
 import creep.enums.State
 import creep.roles.*
@@ -36,6 +37,8 @@ object CreepExecutor : IEvent, ILogging by Logging<CreepExecutor>() {
                     creep.renew()
                     return@forEach
                 }
+
+                else -> Unit
             }
 
             when (creep.memory.role) {

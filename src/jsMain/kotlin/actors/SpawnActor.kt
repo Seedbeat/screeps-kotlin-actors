@@ -3,13 +3,12 @@ package actors
 import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.SystemRequest.CountCreeps
-import actors.assignments.ControllerUpkeepPhase
 import actors.base.Actors
 import actors.base.GameObjectBinding
 import actors.base.IActorBinding
 import creep.enums.Role
-import memory.controllerUpkeepPhase
-import memory.setAssignment
+import memory.assignment
+import screeps.api.CreepMemory
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
 import spawn.Spawner
@@ -37,7 +36,7 @@ class SpawnActor(
         }
     }
 
-    private fun trySpawn(role: Role, memory: screeps.api.CreepMemory.() -> Unit = {}) {
+    private fun trySpawn(role: Role, memory: CreepMemory.() -> Unit = {}) {
         if (self.spawning != null)
             return
 
@@ -49,14 +48,11 @@ class SpawnActor(
 
     private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
         trySpawn(Role.HARVESTER) {
-            setAssignment(
-                CreepAssignment.ControllerUpkeep(
-                    roomName = msg.roomName,
-                    controllerId = msg.controllerId,
-                    sourceId = msg.sourceId
-                )
-            )
-            controllerUpkeepPhase(ControllerUpkeepPhase.HARVEST)
+            assignment.write(CreepAssignment.ControllerUpkeep(
+                roomName = msg.roomName,
+                controllerId = msg.controllerId,
+                sourceId = msg.sourceId
+            ))
         }
     }
 }

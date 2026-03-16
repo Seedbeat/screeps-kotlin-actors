@@ -27,6 +27,8 @@ fun Creep.attack() = workerBase(
                     return@workerBase true
                 }
             }
+
+            else -> Unit
         }
 
         return@workerBase false

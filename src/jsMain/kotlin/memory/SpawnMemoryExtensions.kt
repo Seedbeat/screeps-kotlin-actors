@@ -1,6 +1,6 @@
 package memory
 
+import actors.memory.delegates.memoryValue
 import screeps.api.SpawnMemory
-import screeps.utils.memory.memory
 
-var SpawnMemory.test: Int by memory { 0 }
+var SpawnMemory.test: Int by memoryValue { 0 }

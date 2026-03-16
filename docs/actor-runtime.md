@@ -77,8 +77,8 @@ Use these meanings consistently:
 - `homeRoom`
   - persistent room affiliation
   - the room that should count the creep for long-lived room-level ownership and population planning
-- `assignmentRoom`
-  - persistent task-affiliation room
+- `assignment.roomName`
+  - persistent task-affiliation room stored inside assignment state
   - useful when a creep works for another room without changing long-term ownership
 - `currentRoom`
   - live room position from `Game.creeps[name].room.name`
@@ -87,7 +87,7 @@ Why this split exists:
 
 - `currentRoom` changes constantly and should not define actor ownership
 - `homeRoom` is stable enough for planning
-- `assignmentRoom` lets room-level logic reason about cross-room work without collapsing everything into physical position
+- `assignment.roomName` lets room-level logic reason about cross-room work without collapsing everything into physical position
 
 This is why `currentRoom` is derived from `Game` rather than stored as authoritative memory state.
 
@@ -179,7 +179,7 @@ What is persisted:
 
 - `Memory.actorKernelSnapshot`
 - actor ids and actor type names
-- creep memory such as `homeRoom` and `assignmentRoom`
+- creep memory such as `homeRoom` and assignment-owned fields like `assignment.roomName`
 - explicit creep-assignment fields for actor-owned execution, such as assignment kind, target ids, and assignment phase
 
 What is not fully restored:
@@ -198,6 +198,15 @@ That is why any new persistent actor state needs both:
 - a restore story
 
 without assuming snapshot writing alone is enough.
+
+Migration priority here is logic-first, not backward-data-compatibility-first.
+
+That means:
+
+- new actor-owned behavior should optimize for correct runtime semantics
+- new memory shapes should optimize for clarity and low cognitive load
+- old transient memory layouts do not need compatibility support unless the active runtime still depends on them
+- migration code should not accumulate fallback decoding or legacy data branches just to preserve obsolete state
 
 ## Migration strategy
 
