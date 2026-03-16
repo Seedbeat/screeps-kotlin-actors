@@ -3,6 +3,7 @@ package actors.memory
 import actors.CreepAssignment
 import actors.assignments.ControllerUpkeepPhase
 import actors.assignments.CreepAssignmentKind
+import actors.memory.base.MemoryNode
 import actors.memory.delegates.memoryNodeEnum
 import actors.memory.delegates.memoryNodeValue
 import screeps.api.MemoryMarker

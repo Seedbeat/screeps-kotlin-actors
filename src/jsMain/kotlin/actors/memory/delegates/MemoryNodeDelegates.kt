@@ -1,9 +1,11 @@
 package actors.memory.delegates
 
 import actors.base.Codec
-import actors.memory.MemoryNode
+import actors.memory.base.MemoryNode
 import actors.memory.codecs.RawCodec
 import actors.memory.codecs.enumCodec
+import actors.memory.io.MemoryIO
+import actors.memory.io.MemoryNodeIO
 import screeps.api.MemoryMarker
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty

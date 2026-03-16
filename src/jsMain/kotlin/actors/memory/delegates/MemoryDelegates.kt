@@ -3,6 +3,8 @@ package actors.memory.delegates
 import actors.base.Codec
 import actors.memory.codecs.RawCodec
 import actors.memory.codecs.enumCodec
+import actors.memory.io.MemoryIO
+import actors.memory.io.MemoryRawIO
 import screeps.api.MemoryMarker
 
 class MemoryValueDelegate<T : Any>(

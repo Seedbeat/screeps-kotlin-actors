@@ -1,4 +1,4 @@
-package actors.memory
+package actors.memory.base
 
 import screeps.api.MemoryMarker
 

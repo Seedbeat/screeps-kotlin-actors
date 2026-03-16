@@ -1,6 +1,7 @@
 package actors.memory.delegates
 
 import actors.base.Codec
+import actors.memory.io.MemoryIO
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
