@@ -3,7 +3,7 @@ package actors.memory
 import actors.CreepAssignment
 import actors.assignments.ControllerUpkeepPhase
 import actors.assignments.CreepAssignmentKind
-import actors.memory.base.MemoryNode
+import actors.memory.base.ObjectMemoryNode
 import actors.memory.delegates.memoryNodeEnum
 import actors.memory.delegates.memoryNodeValue
 import screeps.api.MemoryMarker
@@ -11,7 +11,7 @@ import screeps.api.MemoryMarker
 class CreepAssignmentMemory(
     parent: MemoryMarker,
     key: String
-) : MemoryNode<CreepAssignment>(parent, key) {
+) : ObjectMemoryNode<CreepAssignment>(parent, key) {
 
     var kind: CreepAssignmentKind by memoryNodeEnum { CreepAssignmentKind.NONE }
     var roomName: String by memoryNodeValue { "" }

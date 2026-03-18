@@ -13,18 +13,25 @@ import kotlin.reflect.KProperty
 class MemoryNodeValueDelegate<T : Any>(
     default: T,
     codec: Codec<T>
-) : CodecValueDelegate<MemoryNode<*>, T>(default, codec),
-    MemoryIO<MemoryNode<*>> by MemoryNodeIO
+) : CodecValueDelegate<MemoryNode, T>(default, codec),
+    MemoryIO<MemoryNode> by MemoryNodeIO
 
-class MemoryNodeDelegate<T : MemoryNode<*>>(
+class MemoryNodeDelegate<T : MemoryNode>(
     private val factory: (MemoryMarker, String) -> T
 ) : ReadOnlyProperty<MemoryMarker, T> {
 
-    override fun getValue(thisRef: MemoryMarker, property: KProperty<*>): T =
-        factory(thisRef, property.name)
+    override fun getValue(thisRef: MemoryMarker, property: KProperty<*>): T {
+        val parent = if (thisRef is MemoryNode) {
+            thisRef.memoryMarker
+        } else {
+            thisRef
+        }
+
+        return factory(parent, property.name)
+    }
 }
 
-fun <T : MemoryNode<*>> memoryNode(
+fun <T : MemoryNode> memoryNode(
     factory: (MemoryMarker, String) -> T
 ) = MemoryNodeDelegate(factory)
 
