@@ -1,9 +1,9 @@
 package memory
 
-import actors.memory.CreepAssignmentMemory
 import actors.memory.delegates.memoryEnum
 import actors.memory.delegates.memoryNode
 import actors.memory.delegates.memoryValue
+import actors.memory.types.CreepAssignmentMemory
 import creep.enums.CreepType
 import creep.enums.Role
 import creep.enums.State
