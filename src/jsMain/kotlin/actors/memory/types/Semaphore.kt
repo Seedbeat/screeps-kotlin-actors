@@ -21,19 +21,22 @@ class Semaphore(
         writeInternal(id, initialCount, maximumCount)
     }
 
-    fun isAvailable(id: String): Boolean? = available(id)?.let { it > 0 }
+    fun isAvailable(id: String): Boolean? {
+        val available = available(id) ?: return null
+        return available > 0
+    }
 
     fun available(id: String): Int? {
-        val entry = entryOrNull(id) ?: return null
+        val entry = this[id] ?: return null
         return entry.maximum - entry.current
     }
 
-    fun current(id: String): Int? = entryOrNull(id)?.current
+    fun current(id: String): Int? = this[id]?.current
 
-    fun maximum(id: String): Int? = entryOrNull(id)?.maximum
+    fun maximum(id: String): Int? = this[id]?.maximum
 
     fun tryAcquire(id: String): Boolean? {
-        val entry = entryOrNull(id) ?: return null
+        val entry = this[id] ?: return null
 
         if (entry.current == entry.maximum) {
             return false
@@ -44,7 +47,7 @@ class Semaphore(
     }
 
     fun tryRelease(id: String): Boolean? {
-        val entry = entryOrNull(id) ?: return null
+        val entry = this[id] ?: return null
 
         if (entry.current == 0) {
             return false
@@ -53,8 +56,6 @@ class Semaphore(
         entry.current -= 1
         return true
     }
-
-    private fun entryOrNull(id: String): SemaphoreValue? = this[id]
 
     private fun writeInternal(id: String, initialCount: Int, maximumCount: Int) {
         validate(id, initialCount, maximumCount)
