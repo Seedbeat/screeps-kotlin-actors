@@ -6,8 +6,6 @@ import screeps.utils.lazyPerTick
 import utils.log.ILogger
 import utils.log.LogLevel
 import utils.log.Logging
-import utils.tryAcquire
-import utils.tryRelease
 
 val Room.log: ILogger by lazyPerTick { Logging("Room:$name", LogLevel.ERROR).log }
 

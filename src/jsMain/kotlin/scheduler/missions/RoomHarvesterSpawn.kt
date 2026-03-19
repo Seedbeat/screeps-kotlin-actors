@@ -9,7 +9,6 @@ import screeps.api.RESOURCE_ENERGY
 import store.fillPercentage
 import utils.log.ILogging
 import utils.log.Logging
-import utils.maximum
 
 object RoomHarvesterSpawn : IRoomDefaultMission, ILogging by Logging<RoomHarvesterSpawn>() {
     // Goals:

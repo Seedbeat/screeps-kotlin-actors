@@ -7,7 +7,6 @@ import room.RoomStage
 import scheduler.IRoomDefaultMission
 import utils.log.ILogging
 import utils.log.Logging
-import utils.maximum
 
 object RoomMinerSpawn : IRoomDefaultMission, ILogging by Logging<RoomMinerSpawn>() {
     // Goals:

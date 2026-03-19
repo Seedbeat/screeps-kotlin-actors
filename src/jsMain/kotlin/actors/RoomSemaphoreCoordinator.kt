@@ -11,7 +11,6 @@ import screeps.api.*
 import screeps.api.structures.StructureContainer
 import utils.log.ILogging
 import utils.log.Logging
-import utils.maximum
 
 class RoomSemaphoreCoordinator(
     private val room: Room,
