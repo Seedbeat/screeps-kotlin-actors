@@ -45,7 +45,7 @@ class CreepAssignmentMemory(
         }
     }
 
-    fun clear() {
+    override fun clear() {
         kind = CreepAssignmentKind.NONE
         roomName = ""
         controllerId = ""

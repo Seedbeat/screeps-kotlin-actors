@@ -73,7 +73,7 @@ class SystemActor(id: String) :
                 if (msg.currentRoom != null && creep.room.name != msg.currentRoom) {
                     return@mapNotNull null
                 }
-                val assignment = creep.memory.assignment.read()
+                val assignment = creep.memory.assignment.value
                 if (msg.assignmentRoom != null && assignment?.roomName != msg.assignmentRoom) {
                     return@mapNotNull null
                 }

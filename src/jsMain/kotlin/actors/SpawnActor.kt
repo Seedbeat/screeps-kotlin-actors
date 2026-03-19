@@ -48,11 +48,11 @@ class SpawnActor(
 
     private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
         trySpawn(Role.HARVESTER) {
-            assignment.write(CreepAssignment.ControllerUpkeep(
+            assignment.value = CreepAssignment.ControllerUpkeep(
                 roomName = msg.roomName,
                 controllerId = msg.controllerId,
                 sourceId = msg.sourceId
-            ))
+            )
         }
     }
 }

@@ -52,7 +52,7 @@ class CreepActor(
     }
 
     private suspend fun executeAssignment() {
-        when (val assignment = self.memory.assignment.read()) {
+        when (val assignment = self.memory.assignment.value) {
             null -> {
                 self.memory.state = State.UNASSIGNED
                 releaseLockedResourceIfHeld()
@@ -64,7 +64,7 @@ class CreepActor(
 
     private suspend fun assign(assignment: CreepAssignment) {
         releaseLockedResourceIfHeld()
-        self.memory.assignment.write(assignment)
+        self.memory.assignment.value = assignment
         self.memory.state = State.UNASSIGNED
     }
 
@@ -217,7 +217,7 @@ class CreepActor(
     private suspend fun clearAssignmentState(): Boolean {
         releaseLockedResourceIfHeld()
         self.memory.state = State.UNASSIGNED
-        self.memory.assignment.clear()
+        self.memory.assignment.value = null
         setLockedResourceId(null)
         return true
     }
@@ -228,7 +228,7 @@ class CreepActor(
 
     private suspend fun releaseLockedResourceIfHeld() {
         val resourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() } ?: return
-        val roomName = self.memory.assignment.read()?.roomName
+        val roomName = self.memory.assignment.value?.roomName
             ?: selfOrNull?.room?.name
             ?: return
 
@@ -245,7 +245,7 @@ class CreepActor(
     private fun clearDestroyedAssignmentState() {
         val creepMemory = selfOrNull?.memory ?: Memory.creeps[id] ?: return
         creepMemory.state = State.UNASSIGNED
-        creepMemory.assignment.clear()
+        creepMemory.assignment.value = null
         creepMemory.lockedObjectId = ""
     }
 
@@ -253,7 +253,7 @@ class CreepActor(
         actorId = id,
         homeRoom = self.memory.homeRoom,
         currentRoom = self.room.name,
-        assignment = self.memory.assignment.read(),
+        assignment = self.memory.assignment.value,
         capabilities = CreepCapabilities.from(self),
         lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotBlank() }
     )
