@@ -10,8 +10,8 @@ import screeps.api.MemoryMarker
 
 class CreepAssignmentMemory(
     parent: MemoryMarker,
-    key: String
-) : ObjectMemoryNode<CreepAssignment>(parent, key) {
+    selfKey: String
+) : ObjectMemoryNode<CreepAssignment>(parent, selfKey) {
 
     var kind: CreepAssignmentKind by memoryNodeEnum { CreepAssignmentKind.NONE }
     var roomName: String by memoryNodeValue { "" }
