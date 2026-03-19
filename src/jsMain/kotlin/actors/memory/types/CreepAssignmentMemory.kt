@@ -1,4 +1,4 @@
-package actors.memory
+package actors.memory.types
 
 import actors.CreepAssignment
 import actors.assignments.ControllerUpkeepPhase
