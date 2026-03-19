@@ -1,50 +1,57 @@
 package actors.memory.base
 
 import screeps.api.MemoryMarker
-import screeps.api.MutableRecord
 import screeps.utils.unsafe.delete
-import utils.plainObject
+import utils.Object
 
 abstract class MemoryNode(
     internal val parent: MemoryMarker,
-    internal val key: String
+    internal val selfKey: String
 ) : MemoryMarker {
 
-    internal var node: dynamic?
-        get() = parent.asDynamic()[key]
-        set(value) { parent.asDynamic()[key] = value }
+    internal var self: dynamic?
+        get() = parent.asDynamic()[selfKey]
+        set(value) {
+            parent.asDynamic()[selfKey] = value
+        }
 
-    internal val record: MutableRecord<String, Any?>?
-        get() = node?.unsafeCast<MutableRecord<String, dynamic?>>()
+    internal inline val keys: Array<String>
+        get() = Object.keys(self)
+
+    internal inline val size: Int
+        get() = keys.size
+
+    internal inline val values: Array<dynamic>
+        get() = Object.values(self)
 
     internal val memoryMarker: MemoryMarker
         get() {
             ensureNode()
-            return node.unsafeCast<MemoryMarker>()
+            return self.unsafeCast<MemoryMarker>()
         }
 
-    internal fun readNodeValue(name: String): dynamic? {
-        if (node == null)
+    internal fun readNodeValue(key: String): dynamic? {
+        if (self == null)
             return null
 
-        return node[name]
+        return self[key]
     }
 
-    internal fun writeNodeValue(name: String, value: dynamic) {
+    internal fun writeNodeValue(key: String, value: dynamic) {
         ensureNode()
-        node[name] = value
+        self[key] = value
     }
 
-    internal fun deleteNodeValue(name: String) {
-        if (node == null)
+    internal fun deleteNodeValue(key: String) {
+        if (self == null)
             return
 
-        delete(node[name])
+        delete(self[key])
     }
 
     internal fun ensureNode() {
-        if (node == null) {
-            node = plainObject
+        if (self == null) {
+            self = Object.plain
         }
     }
 }

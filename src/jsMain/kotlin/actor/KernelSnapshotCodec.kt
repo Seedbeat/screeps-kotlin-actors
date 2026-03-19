@@ -1,7 +1,7 @@
 package actor
 
 import actors.base.Codec
-import utils.plainObject
+import utils.Object
 
 object KernelSnapshotCodec : Codec<KernelSnapshot> {
 
@@ -9,10 +9,10 @@ object KernelSnapshotCodec : Codec<KernelSnapshot> {
 
 //        console.log("toRaw", snapshot)
 
-        val root = plainObject {
+        val root = Object.plain {
             time = data.time
             actors = data.actors.map { actor ->
-                plainObject {
+                Object.plain {
                     id = actor.id
                     type = actor.type
                 }
