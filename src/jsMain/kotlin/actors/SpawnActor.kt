@@ -6,12 +6,9 @@ import actors.SystemRequest.CountCreeps
 import actors.base.ActorBinding
 import actors.base.Actors
 import actors.base.GameObjectBinding
-import creep.enums.Role
-import memory.assignment
-import screeps.api.CreepMemory
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
-import spawn.Spawner
+import spawn.SpawnerNew.spawn
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -36,23 +33,21 @@ class SpawnActor(
         }
     }
 
-    private fun trySpawn(role: Role, memory: CreepMemory.() -> Unit = {}) {
+    private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
         if (self.spawning != null)
             return
 
-        val code = Spawner.spawn(self, role, memory = memory)
-        if (code == OK) {
-            log.info("Spawn request accepted: role=$role homeRoom=${self.room.name}")
-        }
-    }
-
-    private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
-        trySpawn(Role.HARVESTER) {
-            assignment.value = CreepAssignment.ControllerUpkeep(
+        val code = self.spawn(
+            assignment = CreepAssignment.ControllerUpkeep(
                 roomName = msg.roomName,
                 controllerId = msg.controllerId,
                 sourceId = msg.sourceId
             )
+        )
+        if (code == OK) {
+            log.info("Spawn request accepted: $msg")
+        } else {
+            log.info("Spawn request rejected: $msg")
         }
     }
 }
