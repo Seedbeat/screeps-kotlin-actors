@@ -11,7 +11,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.createCoroutine
 import kotlin.coroutines.resume
 
-abstract class Actor(val id: String) : ILogging {
+abstract class Actor(val id: String) : MessagingApi, ILogging {
     private var isDestroyed = false
 
     private val continuation: Continuation<Unit> = ::run.createCoroutine(object : Continuation<Unit> {
@@ -80,13 +80,31 @@ abstract class Actor(val id: String) : ILogging {
         nextTick(1)
     }
 
-    fun sendTo(actorId: String, payload: Payload, messageId: String? = null) {
-        ActorSystem.send(actorId, id, payload, messageId)
-    }
+    override fun sendTo(actorId: String, payload: Payload) = ActorSystem.send(
+        toActorId = actorId,
+        fromActorId = id,
+        payload = payload,
+        messageId = null
+    )
 
-    suspend fun <T> requestFrom(actorId: String, payload: Request): T {
-        return ActorSystem.request(actorId, id, payload)
-    }
+    override suspend fun <T> requestFrom(actorId: String, payload: Request): T = ActorSystem.request(
+        toActorId = actorId,
+        fromActorId = id,
+        payload = payload
+    )
+
+    override fun reply(msg: Message, response: Payload) = ActorSystem.send(
+        toActorId = msg.from,
+        fromActorId = id,
+        payload = response,
+        messageId = msg.messageId
+    )
+
+    override fun selfSend(payload: Payload) =
+        sendTo(actorId = id, payload = payload)
+
+    override suspend fun <T> selfRequest(payload: Request): T =
+        requestFrom(actorId = id, payload = payload)
 
     fun queueMessage(message: Message): Boolean {
         val result = mailbox.add(message)

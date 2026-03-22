@@ -43,24 +43,30 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         return actor.id
     }
 
-    fun send(actorId: String, msg: Message) {
+    fun send(actorId: String, msg: Message): Boolean {
         log.info("[${msg.messageId}] '${msg.from}' -> '$actorId': ${msg.payload}")
 
-        when (ActorKernel.queueActorMessage(actorId, msg)) {
-            QueueMessageResult.SCHEDULED_RESPONSE ->
+        return when (ActorKernel.queueActorMessage(actorId, msg)) {
+            QueueMessageResult.SCHEDULED_RESPONSE -> {
                 log.debug("[${msg.messageId}] response -> scheduled continuation")
+                true
+            }
 
-            QueueMessageResult.QUEUED_TO_MAILBOX ->
+            QueueMessageResult.QUEUED_TO_MAILBOX -> {
                 log.debug("[${msg.messageId}] queued to mailbox")
+                true
+            }
 
-            QueueMessageResult.ACTOR_NOT_FOUND ->
+            QueueMessageResult.ACTOR_NOT_FOUND -> {
                 log.warn("[${msg.messageId}] Actor '$actorId' not found")
+                false
+            }
         }
     }
 
-    fun send(toActorId: String, fromActorId: String, payload: Payload, messageId: String? = null) {
+    fun send(toActorId: String, fromActorId: String, payload: Payload, messageId: String? = null): Boolean {
         val id = messageId ?: MessageId.next()
-        send(toActorId, BaseMessage(id, fromActorId, payload))
+        return send(toActorId, BaseMessage(id, fromActorId, payload))
     }
 
     suspend fun <T> request(toActorId: String, fromActorId: String, payload: Request): T {
