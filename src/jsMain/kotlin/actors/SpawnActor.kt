@@ -1,8 +1,5 @@
 package actors
 
-import actors.SpawnRequest.PopulationRequest
-import actors.SpawnResponse.PopulationResponse
-import actors.SystemRequest.CountCreeps
 import actors.base.ActorBinding
 import actors.base.GameObjectBinding
 import screeps.api.OK
@@ -22,14 +19,7 @@ class SpawnActor(
         is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)
     }
 
-    override suspend fun processRequest(msg: SpawnRequest<*>): SpawnResponse<*> = when (msg) {
-        is PopulationRequest -> {
-            val count: Int = systemRequest(
-                CountCreeps(homeRoom = self.room.name, role = msg.role)
-            )
-            PopulationResponse(count)
-        }
-    }
+    override suspend fun processRequest(msg: SpawnRequest<*>): SpawnResponse<*> = TODO()
 
     private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
         if (self.spawning != null)
