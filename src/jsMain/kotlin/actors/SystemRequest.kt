@@ -3,17 +3,17 @@ package actors
 import actor.message.Request
 import creep.enums.Role
 
-sealed class SystemRequest : Request {
+sealed class SystemRequest<T> : Request<T> {
     data class CountCreeps(
         val homeRoom: String? = null,
         val currentRoom: String? = null,
         val assignmentRoom: String? = null,
         val role: Role? = null
-    ) : SystemRequest()
+    ) : SystemRequest<Int>()
 
     data class QueryCreeps(
         val homeRoom: String? = null,
         val currentRoom: String? = null,
         val assignmentRoom: String? = null
-    ) : SystemRequest()
+    ) : SystemRequest<List<CreepStatus>>()
 }

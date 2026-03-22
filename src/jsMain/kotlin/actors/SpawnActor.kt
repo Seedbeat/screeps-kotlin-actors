@@ -14,7 +14,7 @@ import utils.log.Logging
 
 class SpawnActor(
     id: String
-) : ActorBase<StructureSpawn, SpawnCommand, SpawnRequest, SpawnResponse<*>>(id),
+) : ActorBase<StructureSpawn, SpawnCommand, SpawnRequest<*>, SpawnResponse<*>>(id),
     ActorBinding<StructureSpawn> by GameObjectBinding(id),
     ILogging by Logging.Companion<SpawnActor>(id, LogLevel.INFO) {
 
@@ -22,7 +22,7 @@ class SpawnActor(
         is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)
     }
 
-    override suspend fun processRequest(msg: SpawnRequest): SpawnResponse<*> = when (msg) {
+    override suspend fun processRequest(msg: SpawnRequest<*>): SpawnResponse<*> = when (msg) {
         is PopulationRequest -> {
             val count: Int = systemRequest(
                 CountCreeps(homeRoom = self.room.name, role = msg.role)

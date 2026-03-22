@@ -23,7 +23,7 @@ import utils.log.Logging
 
 class CreepActor(
     id: String
-) : ActorBase<Creep, CreepCommand, CreepRequest, CreepResponse<*>>(id),
+) : ActorBase<Creep, CreepCommand, CreepRequest<*>, CreepResponse<*>>(id),
     ActorBinding<Creep> by GameCreepBinding(id),
     ILogging by Logging<CreepActor>(id, LogLevel.INFO) {
 
@@ -42,7 +42,7 @@ class CreepActor(
         }
     }
 
-    override suspend fun processRequest(msg: CreepRequest): CreepResponse<*> = when (msg) {
+    override suspend fun processRequest(msg: CreepRequest<*>): CreepResponse<*> = when (msg) {
         StatusRequest -> StatusResponse(result = status())
         CreepRequest.Unassign -> UnassignResponse(result = clearAssignmentState())
     }

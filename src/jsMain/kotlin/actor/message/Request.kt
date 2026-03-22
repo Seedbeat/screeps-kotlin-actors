@@ -1,3 +1,3 @@
 package actor.message
 
-interface Request : Payload
+interface Request<T> : Payload

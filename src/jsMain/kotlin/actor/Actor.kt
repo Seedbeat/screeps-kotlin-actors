@@ -87,7 +87,7 @@ abstract class Actor(val id: String) : MessagingApi, ILogging {
         messageId = null
     )
 
-    override suspend fun <T> requestFrom(actorId: String, payload: Request): T = ActorSystem.request(
+    override suspend fun <T> requestFrom(actorId: String, payload: Request<T>): T = ActorSystem.request(
         toActorId = actorId,
         fromActorId = id,
         payload = payload
@@ -103,7 +103,7 @@ abstract class Actor(val id: String) : MessagingApi, ILogging {
     override fun selfSend(payload: Payload) =
         sendTo(actorId = id, payload = payload)
 
-    override suspend fun <T> selfRequest(payload: Request): T =
+    override suspend fun <T> selfRequest(payload: Request<T>): T =
         requestFrom(actorId = id, payload = payload)
 
     fun queueMessage(message: Message): Boolean {

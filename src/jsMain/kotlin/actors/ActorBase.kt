@@ -10,7 +10,7 @@ import actors.base.Lifecycle
 abstract class ActorBase<
         ObjectType,
         CommandType : Command,
-        RequestType : Request,
+        RequestType : Request<*>,
         ResponseType : Response<*>>(
     id: String
 ) : Actor(id), ActorBinding<ObjectType>, ActorApi {
@@ -46,7 +46,7 @@ abstract class ActorBase<
             null
         }
 
-        is Request -> {
+        is Request<*> -> {
             @Suppress("UNCHECKED_CAST")
             processRequest((msg as RequestType))
         }
@@ -64,6 +64,6 @@ abstract class ActorBase<
     override fun systemSend(payload: Payload) =
         sendTo(actorId = Actors.SYSTEM, payload = payload)
 
-    override suspend fun <T> systemRequest(payload: Request): T =
+    override suspend fun <T> systemRequest(payload: Request<T>): T =
         requestFrom(actorId = Actors.SYSTEM, payload = payload)
 }

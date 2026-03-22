@@ -69,7 +69,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         return send(toActorId, BaseMessage(id, fromActorId, payload))
     }
 
-    suspend fun <T> request(toActorId: String, fromActorId: String, payload: Request): T {
+    suspend fun <T> request(toActorId: String, fromActorId: String, payload: Request<T>): T {
 
         if (!contains(toActorId)) {
             throw ActorRequestException(toActorId, "target actor does not exist")

@@ -12,7 +12,7 @@ import utils.log.Logging
 
 class RoomActor(
     id: String
-) : ActorIntentQueueBase<Room, RoomCommand, RoomIntent, RoomRequest, RoomResponse<*>>(id),
+) : ActorIntentQueueBase<Room, RoomCommand, RoomIntent, RoomRequest<*>, RoomResponse<*>>(id),
     ActorBinding<Room> by GameRoomBinding(id),
     ChildrenMultiManager,
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
@@ -67,7 +67,7 @@ class RoomActor(
         }
     }
 
-    override suspend fun processRequest(msg: RoomRequest): RoomResponse<*> = when (msg) {
+    override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {
         StatusRequest -> StatusResponse(result = "room=$id")
         is RoomRequest.TryAcquireResource -> TryAcquireResourceResponse(
             result = semaphoreService.tryAcquireResource(msg.ownerId, msg.resourceId)

@@ -10,7 +10,7 @@ abstract class ActorIntentBase<
         ObjectType,
         CommandType : Command,
         IntentType : Intent,
-        RequestType : Request,
+        RequestType : Request<*>,
         ResponseType : Response<*>>(
     id: String
 ) : ActorBase<ObjectType, CommandType, RequestType, ResponseType>(id) {

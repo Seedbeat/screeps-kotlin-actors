@@ -15,7 +15,7 @@ import utils.log.LogLevel
 import utils.log.Logging
 
 class SystemActor(id: String) :
-    ActorBase<Unit, SystemCommand, SystemRequest, SystemResponse<*>>(id),
+    ActorBase<Unit, SystemCommand, SystemRequest<*>, SystemResponse<*>>(id),
     ActorBinding<Unit> by NoBinding,
     ChildrenMultiManager,
     ILogging by Logging<SystemActor>(LogLevel.INFO) {
@@ -50,7 +50,7 @@ class SystemActor(id: String) :
         SystemCommand.Noop -> {}
     }
 
-    override suspend fun processRequest(msg: SystemRequest): SystemResponse<*> = when (msg) {
+    override suspend fun processRequest(msg: SystemRequest<*>): SystemResponse<*> = when (msg) {
         is CountCreeps -> CountCreepsResponse(
             result = Game.creeps.keys.count { name ->
                 val creep = Game.creeps[name]
