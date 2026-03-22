@@ -3,19 +3,16 @@ package actors
 import map.mapAround
 import room.RoomStage
 import screeps.api.*
-import screeps.api.structures.StructureContainer
 
-class RoomStagePlanner(
-    private val room: Room,
-) {
-    fun calculate(): RoomStage {
+object RoomStagePlanner {
+    fun calculate(room: Room): RoomStage {
         val controllerLevel = room.controller?.level ?: 0
         val myStructures = room.find(FIND_MY_STRUCTURES)
 
         val extensionCount = myStructures.count { it.structureType == STRUCTURE_EXTENSION }
         val towerCount = myStructures.count { it.structureType == STRUCTURE_TOWER }
 
-        val hasAllSourceContainers = hasAllSourcesAdjacentToContainers()
+        val hasAllSourceContainers = hasAllSourcesAdjacentToContainers(room)
         val hasStorage = room.storage != null
 
         return when {
@@ -32,17 +29,16 @@ class RoomStagePlanner(
         }
     }
 
-    private fun hasAllSourcesAdjacentToContainers(): Boolean {
+    private fun hasAllSourcesAdjacentToContainers(room: Room): Boolean {
         val sources = room.find(FIND_SOURCES)
         if (sources.isEmpty()) {
             return false
         }
 
-        val containersByPos = room.find(FIND_STRUCTURES)
-            .asSequence()
-            .filter { structure -> structure.structureType == STRUCTURE_CONTAINER }
-            .map { structure -> structure.unsafeCast<StructureContainer>() }
-            .associateBy { container -> container.pos.x to container.pos.y }
+        val containersByPos = room.find(
+            findConstant = FIND_STRUCTURES,
+            opts = options { filter = { it.structureType == STRUCTURE_CONTAINER } }
+        ).associateBy { container -> container.pos.x to container.pos.y }
 
         return sources.all { source ->
             source.mapAround { x, y -> containersByPos[x to y] }.any()
