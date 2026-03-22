@@ -4,7 +4,6 @@ import actors.SpawnRequest.PopulationRequest
 import actors.SpawnResponse.PopulationResponse
 import actors.SystemRequest.CountCreeps
 import actors.base.ActorBinding
-import actors.base.Actors
 import actors.base.GameObjectBinding
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
@@ -25,8 +24,7 @@ class SpawnActor(
 
     override suspend fun processRequest(msg: SpawnRequest): SpawnResponse<*> = when (msg) {
         is PopulationRequest -> {
-            val count: Int = requestFrom(
-                Actors.SYSTEM,
+            val count: Int = systemRequest(
                 CountCreeps(homeRoom = self.room.name, role = msg.role)
             )
             PopulationResponse(count)

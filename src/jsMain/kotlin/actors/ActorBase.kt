@@ -2,7 +2,9 @@ package actors
 
 import actor.Actor
 import actor.message.*
+import actors.base.ActorApi
 import actors.base.ActorBinding
+import actors.base.Actors
 import actors.base.Lifecycle
 
 abstract class ActorBase<
@@ -11,7 +13,7 @@ abstract class ActorBase<
         RequestType : Request,
         ResponseType : Response<*>>(
     id: String
-) : Actor(id), ActorBinding<ObjectType> {
+) : Actor(id), ActorBinding<ObjectType>, ActorApi {
 
     override suspend fun run() {
         while (true) {
@@ -24,7 +26,7 @@ abstract class ActorBase<
                 }
                 onReceive(msg.payload)?.let { response ->
                     log.debug("[${msg.messageId}]: send response to '${msg.from}'")
-                    sendTo(msg.from, response, msg.messageId)
+                    reply(msg, response)
                 }
             } catch (_: Exception) {
                 log.error("[Root exception handler] fail to process $msg")
@@ -58,4 +60,10 @@ abstract class ActorBase<
     open suspend fun processLifecycle(msg: Lifecycle) = Unit
     abstract suspend fun processCommand(msg: CommandType)
     abstract suspend fun processRequest(msg: RequestType): ResponseType
+
+    override fun systemSend(payload: Payload) =
+        sendTo(actorId = Actors.SYSTEM, payload = payload)
+
+    override suspend fun <T> systemRequest(payload: Request): T =
+        requestFrom(actorId = Actors.SYSTEM, payload = payload)
 }
