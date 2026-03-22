@@ -10,11 +10,9 @@ import actors.assignments.ControllerUpkeepPhase
 import actors.base.ActorBinding
 import actors.base.GameCreepBinding
 import actors.base.Lifecycle
-import creep.enums.State
 import memory.assignment
 import memory.homeRoom
 import memory.lockedObjectId
-import memory.state
 import screeps.api.*
 import screeps.api.structures.StructureController
 import utils.log.ILogging
@@ -54,7 +52,6 @@ class CreepActor(
     private suspend fun executeAssignment() {
         when (val assignment = self.memory.assignment.value) {
             null -> {
-                self.memory.state = State.UNASSIGNED
                 releaseLockedResourceIfHeld()
             }
 
@@ -65,7 +62,6 @@ class CreepActor(
     private suspend fun assign(assignment: CreepAssignment) {
         releaseLockedResourceIfHeld()
         self.memory.assignment.value = assignment
-        self.memory.state = State.UNASSIGNED
     }
 
     private suspend fun executeControllerUpkeep(assignment: CreepAssignment.ControllerUpkeep) {
@@ -102,8 +98,6 @@ class CreepActor(
             }
             return
         }
-
-        self.memory.state = State.SOURCE_WORK
 
         if (source.energy <= 0 && usedCapacity > 0) {
             switchToUpgradePhase()
@@ -150,8 +144,6 @@ class CreepActor(
             switchToHarvestPhase(assignment)
             return
         }
-
-        self.memory.state = State.TARGET_WORK
 
         when (val code = self.upgradeController(controller)) {
             OK -> {
@@ -205,18 +197,15 @@ class CreepActor(
     private suspend fun switchToHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
         releaseLockedResourceIfHeld()
         self.memory.assignment.phase = ControllerUpkeepPhase.HARVEST
-        self.memory.state = State.UNASSIGNED
     }
 
     private suspend fun switchToUpgradePhase() {
         releaseLockedResourceIfHeld()
         self.memory.assignment.phase = ControllerUpkeepPhase.UPGRADE
-        self.memory.state = State.UNASSIGNED
     }
 
     private suspend fun clearAssignmentState(): Boolean {
         releaseLockedResourceIfHeld()
-        self.memory.state = State.UNASSIGNED
         self.memory.assignment.value = null
         setLockedResourceId(null)
         return true
@@ -244,7 +233,6 @@ class CreepActor(
 
     private fun clearDestroyedAssignmentState() {
         val creepMemory = selfOrNull?.memory ?: Memory.creeps[id] ?: return
-        creepMemory.state = State.UNASSIGNED
         creepMemory.assignment.value = null
         creepMemory.lockedObjectId = ""
     }
