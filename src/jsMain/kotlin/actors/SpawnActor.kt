@@ -28,8 +28,7 @@ class SpawnActor(
         val code = self.spawn(
             assignment = CreepAssignment.ControllerUpkeep(
                 roomName = msg.roomName,
-                controllerId = msg.controllerId,
-                sourceId = msg.sourceId
+                controllerId = msg.controllerId
             )
         )
         if (code == OK) {

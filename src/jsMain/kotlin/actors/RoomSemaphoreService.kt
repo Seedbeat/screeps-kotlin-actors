@@ -5,10 +5,7 @@ import actors.base.ActorApi
 import actors.base.ActorBinding
 import memory.resourceLockOwners
 import memory.resourceSemaphore
-import screeps.api.Room
-import screeps.api.get
-import screeps.api.keys
-import screeps.api.set
+import screeps.api.*
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -76,6 +73,25 @@ class RoomSemaphoreService<T>(
             null -> log.error("$resourceId is not found by $ownerId, FAIL")
         }
         return result
+    }
+
+    fun tryAcquireAnyResource(ownerId: String, near: RoomPosition, type: RoomResourceType): String? {
+        val owners = self.memory.resourceLockOwners
+        val ownedResourceId = owners[ownerId]
+        if (ownedResourceId != null) {
+            return ownedResourceId
+        }
+
+        return when (type) {
+            RoomResourceType.SOURCE -> {
+                val source = resolveClosestAvailableSource(near) ?: return null
+                if (tryAcquireResource(ownerId, source.id) == true) {
+                    source.id
+                } else {
+                    null
+                }
+            }
+        }
     }
 
     fun releaseResource(ownerId: String, resourceId: String): Boolean? {
@@ -178,16 +194,18 @@ class RoomSemaphoreService<T>(
             .toSet()
     }
 
-    private fun unassignOwner(ownerId: String): Boolean {
-        if (!ActorSystem.contains(ownerId)) {
-            return false
+    private fun unassignOwner(ownerId: String): Boolean =
+        sendTo(actorId = ownerId, payload = CreepCommand.ClearAssignment)
+
+    private fun setLockedResource(ownerId: String, lockedResourceId: String?): Boolean =
+        sendTo(actorId = ownerId, payload = CreepCommand.SetLockedResourceId(lockedResourceId))
+
+    private fun resolveClosestAvailableSource(near: RoomPosition): Source? = near.findClosestByPath(
+        objects = self.find(findConstant = FIND_SOURCES),
+        opts = options {
+            filter = { source ->
+                source.energy > 0 && (self.memory.resourceSemaphore.isAvailable(source.id) ?: true)
+            }
         }
-
-        sendTo(ownerId, CreepCommand.ClearAssignment)
-        return true
-    }
-
-    private fun setLockedResource(ownerId: String, lockedResourceId: String?) {
-        sendTo(ownerId, CreepCommand.SetLockedResourceId(lockedResourceId))
-    }
+    )
 }

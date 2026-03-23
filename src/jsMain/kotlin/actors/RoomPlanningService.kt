@@ -6,7 +6,6 @@ import actors.base.ActorApi
 import actors.base.ActorBinding
 import actors.base.IntentResultType
 import screeps.api.FIND_MY_SPAWNS
-import screeps.api.FIND_SOURCES
 import screeps.api.Room
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -23,10 +22,7 @@ class RoomPlanningService<T>(
         val controller = self.controller
             ?: return IntentResultType.RETAINED
 
-        val source = self.find(FIND_SOURCES).firstOrNull { it.energy > 0 }
-            ?: return IntentResultType.RETAINED
-
-        val creeps = systemRequest<List<CreepStatus>>(payload = QueryCreeps(homeRoom = self.name))
+        val creeps = systemRequest(payload = QueryCreeps(homeRoom = self.name))
 
         val assignedSurvivalCreep = creeps.firstOrNull { creep ->
             val assignment = creep.assignment as? CreepAssignment.ControllerUpkeep
@@ -44,11 +40,10 @@ class RoomPlanningService<T>(
         if (existingSurvivalCreep != null) {
             sendTo(
                 existingSurvivalCreep.actorId,
-                CreepCommand.Assign(
-                    CreepAssignment.ControllerUpkeep(
+                payload = CreepCommand.Assign(
+                    assignment = CreepAssignment.ControllerUpkeep(
                         roomName = self.name,
-                        controllerId = controller.id,
-                        sourceId = source.id
+                        controllerId = controller.id
                     )
                 )
             )
@@ -64,8 +59,7 @@ class RoomPlanningService<T>(
             availableSpawnActorId,
             SpawnCommand.TrySpawnControllerSurvivalWorker(
                 roomName = self.name,
-                controllerId = controller.id,
-                sourceId = source.id
+                controllerId = controller.id
             )
         )
         return IntentResultType.COMPLETED

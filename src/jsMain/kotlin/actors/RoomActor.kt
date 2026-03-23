@@ -73,6 +73,10 @@ class RoomActor(
             result = semaphoreService.tryAcquireResource(msg.ownerId, msg.resourceId)
         )
 
+        is RoomRequest.TryAcquireAnyResource -> TryAcquireAnyResourceResponse(
+            result = semaphoreService.tryAcquireAnyResource(msg.ownerId, msg.near, msg.type)
+        )
+
         is ReleaseResource -> ReleaseResourceResponse(
             result = semaphoreService.releaseResource(msg.ownerId, msg.resourceId)
         )
