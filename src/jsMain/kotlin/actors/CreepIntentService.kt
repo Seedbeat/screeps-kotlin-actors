@@ -41,12 +41,6 @@ class CreepIntentService<T>(
         return true
     }
 
-    fun clearDestroyedAssignmentState() {
-        val creepMemory = selfOrNull?.memory ?: Memory.creeps[self.id] ?: return
-        creepMemory.assignment.value = null
-        creepMemory.lockedObjectId = ""
-    }
-
     fun setLockedResourceId(resourceId: String?) {
         self.memory.lockedObjectId = resourceId ?: ""
     }

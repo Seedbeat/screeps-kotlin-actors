@@ -7,7 +7,11 @@ import actors.CreepResponse.UnassignResponse
 import actors.base.ActorBinding
 import actors.base.GameCreepBinding
 import actors.base.Lifecycle
+import memory.assignment
+import memory.lockedObjectId
 import screeps.api.Creep
+import screeps.api.Memory
+import screeps.api.get
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -41,6 +45,8 @@ class CreepActor(
     }
 
     override fun onDestroy() {
-        intentService.clearDestroyedAssignmentState()
+        val creepMemory = selfOrNull?.memory ?: Memory.creeps[self.name] ?: return
+        creepMemory.assignment.value = null
+        creepMemory.lockedObjectId = ""
     }
 }
