@@ -57,7 +57,7 @@ class RoomPlanningService<T>(
 
         sendTo(
             availableSpawnActorId,
-            SpawnCommand.TrySpawnControllerSurvivalWorker(
+            payload = SpawnCommand.TrySpawnControllerSurvivalWorker(
                 roomName = self.name,
                 controllerId = controller.id
             )
