@@ -4,17 +4,10 @@ import actors.CreepCommand.*
 import actors.CreepRequest.StatusRequest
 import actors.CreepResponse.StatusResponse
 import actors.CreepResponse.UnassignResponse
-import actors.RoomRequest.ReleaseResource
-import actors.RoomRequest.TryAcquireAnyResource
-import actors.assignments.ControllerUpkeepPhase
 import actors.base.ActorBinding
 import actors.base.GameCreepBinding
 import actors.base.Lifecycle
-import memory.assignment
-import memory.homeRoom
-import memory.lockedObjectId
-import screeps.api.*
-import screeps.api.structures.StructureController
+import screeps.api.Creep
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -25,245 +18,29 @@ class CreepActor(
     ActorBinding<Creep> by GameCreepBinding(id),
     ILogging by Logging<CreepActor>(id, LogLevel.INFO) {
 
+    private val intentService = CreepIntentService(api = this)
+
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
         is Lifecycle.Bootstrap -> Unit
-        is Lifecycle.Tick -> executeAssignment()
+        is Lifecycle.Tick -> intentService.executeAssignment()
     }
 
     override suspend fun processCommand(msg: CreepCommand) = when (msg) {
         Noop -> Unit
-        is Assign -> assign(msg.assignment)
-        is SetLockedResourceId -> setLockedResourceId(msg.resourceId)
+        is Assign -> intentService.assign(msg.assignment)
+        is SetLockedResourceId -> intentService.setLockedResourceId(msg.resourceId)
         ClearAssignment -> {
-            clearAssignmentState()
+            intentService.clearAssignmentState()
             Unit
         }
     }
 
     override suspend fun processRequest(msg: CreepRequest<*>): CreepResponse<*> = when (msg) {
-        StatusRequest -> StatusResponse(result = status())
-        CreepRequest.Unassign -> UnassignResponse(result = clearAssignmentState())
+        StatusRequest -> StatusResponse(result = intentService.status())
+        CreepRequest.Unassign -> UnassignResponse(result = intentService.clearAssignmentState())
     }
 
     override fun onDestroy() {
-        clearDestroyedAssignmentState()
+        intentService.clearDestroyedAssignmentState()
     }
-
-    private suspend fun executeAssignment() {
-        when (val assignment = self.memory.assignment.value) {
-            null -> {
-                releaseLockedResourceIfHeld()
-            }
-
-            is CreepAssignment.ControllerUpkeep -> executeControllerUpkeep(assignment)
-        }
-    }
-
-    private suspend fun assign(assignment: CreepAssignment) {
-        releaseLockedResourceIfHeld()
-        self.memory.assignment.value = assignment
-    }
-
-    private suspend fun executeControllerUpkeep(assignment: CreepAssignment.ControllerUpkeep) {
-        val creepMemory = self.memory
-        val controller = Game.getObjectById<StructureController>(assignment.controllerId)
-
-        if (controller == null) {
-            clearAssignmentState()
-            return
-        }
-
-        when (creepMemory.assignment.phase) {
-            ControllerUpkeepPhase.HARVEST -> executeHarvestPhase(assignment)
-            ControllerUpkeepPhase.UPGRADE -> executeUpgradePhase(assignment, controller)
-        }
-    }
-
-    private suspend fun executeHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
-        val usedCapacity = self.store.getUsedCapacity(RESOURCE_ENERGY) ?: 0
-        val freeCapacity = self.store.getFreeCapacity(RESOURCE_ENERGY) ?: 0
-
-        if (freeCapacity <= 0) {
-            switchToUpgradePhase()
-            return
-        }
-
-        val source = resolveNearestAvailableSource(assignment)
-        if (source == null) {
-            if (usedCapacity > 0) {
-                switchToUpgradePhase()
-            }
-            return
-        }
-
-        if (source.energy <= 0 && usedCapacity > 0) {
-            switchToUpgradePhase()
-            return
-        }
-
-        when (val code = self.harvest(source)) {
-            OK -> {
-                val remainingFreeCapacity = self.store.getFreeCapacity(RESOURCE_ENERGY) ?: 0
-                val remainingEnergy = source.energy
-
-                if (remainingFreeCapacity <= 0 || (remainingEnergy <= 0 && usedCapacityNow() > 0)) {
-                    switchToUpgradePhase()
-                }
-            }
-
-            ERR_NOT_IN_RANGE -> {
-                self.moveTo(source)
-            }
-
-            ERR_NOT_ENOUGH_RESOURCES -> {
-                if (usedCapacityNow() > 0) {
-                    switchToUpgradePhase()
-                }
-            }
-
-            ERR_INVALID_TARGET -> {
-                clearAssignmentState()
-            }
-
-            else -> {
-                log.error("Controller upkeep harvest failed for $id with code $code")
-            }
-        }
-    }
-
-    private suspend fun executeUpgradePhase(
-        assignment: CreepAssignment.ControllerUpkeep,
-        controller: StructureController
-    ) {
-        releaseLockedResourceIfHeld()
-
-        if (usedCapacityNow() <= 0) {
-            switchToHarvestPhase(assignment)
-            return
-        }
-
-        when (val code = self.upgradeController(controller)) {
-            OK -> {
-                if (usedCapacityNow() <= 0) {
-                    switchToHarvestPhase(assignment)
-                }
-            }
-
-            ERR_NOT_IN_RANGE -> {
-                self.moveTo(controller)
-            }
-
-            ERR_NOT_ENOUGH_RESOURCES -> {
-                switchToHarvestPhase(assignment)
-            }
-
-            ERR_INVALID_TARGET -> {
-                clearAssignmentState()
-            }
-
-            else -> {
-                log.error("Controller upkeep upgrade failed for $id with code $code")
-            }
-        }
-    }
-
-    private suspend fun resolveNearestAvailableSource(assignment: CreepAssignment.ControllerUpkeep): Source? {
-        val lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() }
-        val lockedSource = lockedResourceId?.let { Game.getObjectById<Source>(it) }
-
-        if (lockedSource != null && lockedSource.energy > 0) {
-            return lockedSource
-        }
-
-        if (lockedResourceId != null) {
-            releaseLockedResourceIfHeld()
-        }
-
-        val acquiredResourceId = ensurePreferredResourceLock(
-            roomName = assignment.roomName,
-            assignment = assignment
-        ) ?: return null
-
-        return Game.getObjectById(acquiredResourceId)
-    }
-
-    private suspend fun ensurePreferredResourceLock(
-        roomName: String,
-        assignment: CreepAssignment
-    ): String? {
-        val lockedResourceId = self.memory.lockedObjectId
-
-        if (lockedResourceId.isNotEmpty()) {
-            return lockedResourceId
-        }
-
-        val acquiredResourceId: String? = requestFrom(
-            roomName,
-            TryAcquireAnyResource(
-                ownerId = id,
-                near = self.pos,
-                type = RoomResourceType.SOURCE
-            )
-        )
-
-        if (acquiredResourceId != null) {
-            setLockedResourceId(acquiredResourceId)
-        }
-
-        return acquiredResourceId
-    }
-
-    private suspend fun switchToHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
-        releaseLockedResourceIfHeld()
-        self.memory.assignment.phase = ControllerUpkeepPhase.HARVEST
-    }
-
-    private suspend fun switchToUpgradePhase() {
-        releaseLockedResourceIfHeld()
-        self.memory.assignment.phase = ControllerUpkeepPhase.UPGRADE
-    }
-
-    private suspend fun clearAssignmentState(): Boolean {
-        releaseLockedResourceIfHeld()
-        self.memory.assignment.value = null
-        setLockedResourceId(null)
-        return true
-    }
-
-    private fun setLockedResourceId(resourceId: String?) {
-        self.memory.lockedObjectId = resourceId ?: ""
-    }
-
-    private suspend fun releaseLockedResourceIfHeld() {
-        val resourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() } ?: return
-        val roomName = self.memory.assignment.value?.roomName
-            ?: selfOrNull?.room?.name
-            ?: return
-
-        val released: Boolean? = requestFrom(
-            roomName,
-            ReleaseResource(ownerId = id, resourceId = resourceId)
-        )
-
-        if (released == true) {
-            setLockedResourceId(null)
-        }
-    }
-
-    private fun clearDestroyedAssignmentState() {
-        val creepMemory = selfOrNull?.memory ?: Memory.creeps[id] ?: return
-        creepMemory.assignment.value = null
-        creepMemory.lockedObjectId = ""
-    }
-
-    private fun status(): CreepStatus = CreepStatus(
-        actorId = id,
-        homeRoom = self.memory.homeRoom,
-        currentRoom = self.room.name,
-        assignment = self.memory.assignment.value,
-        capabilities = CreepCapabilities.from(self),
-        lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotBlank() }
-    )
-
-    private fun usedCapacityNow(): Int = self.store.getUsedCapacity(RESOURCE_ENERGY) ?: 0
 }
