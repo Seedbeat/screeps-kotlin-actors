@@ -18,6 +18,6 @@ object Log {
         if (level.priority < (minLevel ?: Settings.LoggingLevel()).priority)
             return
 
-        console.log("${level.value}[${sender.padStart(20, ' ')}]:", *o)
+        console.log("${level.value}[${sender}]:", *o)
     }
 }
