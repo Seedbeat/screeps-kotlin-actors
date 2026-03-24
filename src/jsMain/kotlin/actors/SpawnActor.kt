@@ -13,7 +13,7 @@ class SpawnActor(
     id: String
 ) : ActorBase<StructureSpawn, SpawnCommand, SpawnRequest<*>, SpawnResponse<*>>(id),
     ActorBinding<StructureSpawn> by GameObjectBinding(id),
-    ILogging by Logging.Companion<SpawnActor>(id, LogLevel.INFO) {
+    ILogging by Logging<SpawnActor>(id, LogLevel.INFO) {
 
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {
         is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)

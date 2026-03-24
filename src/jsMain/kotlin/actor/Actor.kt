@@ -11,7 +11,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.createCoroutine
 import kotlin.coroutines.resume
 
-abstract class Actor(val id: String) : MessagingApi, ILogging {
+abstract class Actor(override val id: String) : MessagingApi, ILogging {
     private var isDestroyed = false
 
     private val continuation: Continuation<Unit> = ::run.createCoroutine(object : Continuation<Unit> {
