@@ -17,8 +17,8 @@ class GameObjectBinding<T : Identifiable>(id: String) : ActorBinding<T> {
     override val selfOrNull: T? by lazyPerTickNullable { Game.getObjectById(id) }
 }
 
-class GameRoomBinding(id: String) : ActorBinding<Room> {
-    override val selfOrNull: Room? by lazyPerTickNullable { Game.rooms[id] }
+class GameRoomBinding(name: String) : ActorBinding<Room> {
+    override val selfOrNull: Room? by lazyPerTickNullable { Game.rooms[name] }
 }
 
 class GameCreepBinding(name: String) : ActorBinding<Creep> {
