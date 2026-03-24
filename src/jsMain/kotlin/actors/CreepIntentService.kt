@@ -18,7 +18,7 @@ class CreepIntentService<T>(
     api: T
 ) : ActorApi by api,
     ActorBinding<Creep> by api,
-    ILogging by Logging<CreepIntentService<T>>(api.self.id, LogLevel.INFO)
+    ILogging by Logging<CreepIntentService<T>>(api.id, LogLevel.INFO)
         where T : ActorApi,
               T : ActorBinding<Creep> {
 
@@ -46,7 +46,7 @@ class CreepIntentService<T>(
     }
 
     fun status(): CreepStatus = CreepStatus(
-        actorId = self.id,
+        actorId = id,
         homeRoom = self.memory.homeRoom,
         currentRoom = self.room.name,
         assignment = self.memory.assignment.value,
@@ -110,7 +110,7 @@ class CreepIntentService<T>(
 
             ERR_INVALID_TARGET -> clearAssignmentState()
 
-            else -> log.error("Controller upkeep harvest failed for ${self.id} with code $code")
+            else -> log.error("Controller upkeep harvest failed with code $code")
         }
     }
 
@@ -135,7 +135,7 @@ class CreepIntentService<T>(
             ERR_NOT_IN_RANGE -> self.moveTo(controller)
             ERR_NOT_ENOUGH_RESOURCES -> switchToHarvestPhase(assignment)
             ERR_INVALID_TARGET -> clearAssignmentState()
-            else -> log.error("Controller upkeep upgrade failed for ${self.id} with code $code")
+            else -> log.error("Controller upkeep upgrade failed with code $code")
         }
     }
 
@@ -164,7 +164,7 @@ class CreepIntentService<T>(
         val acquiredResourceId: String? = requestFrom(
             roomName,
             TryAcquireAnyResource(
-                ownerId = self.id,
+                ownerId = id,
                 near = self.pos,
                 type = RoomResourceType.SOURCE
             )
@@ -195,7 +195,7 @@ class CreepIntentService<T>(
 
         val released: Boolean? = requestFrom(
             roomName,
-            ReleaseResource(ownerId = self.id, resourceId = resourceId)
+            ReleaseResource(ownerId = id, resourceId = resourceId)
         )
 
         if (released == true) {
