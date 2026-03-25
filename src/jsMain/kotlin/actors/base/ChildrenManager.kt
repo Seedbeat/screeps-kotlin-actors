@@ -7,7 +7,7 @@ import actors.CreepActor
 import actors.RoomActor
 import actors.SpawnActor
 import screeps.api.*
-import screeps.utils.lazyPerTick
+import utils.lazyPerTick
 
 interface ChildrenManager<T : Actor> {
     val childrenIds: Set<String>

@@ -1,7 +1,7 @@
 package creep.enums
 
 import screeps.api.*
-import screeps.utils.lazyPerTick
+import utils.lazyPerTick
 
 enum class CreepType(vararg body: BodyPartConstant) {
 //    MOVE = 50

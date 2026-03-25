@@ -2,7 +2,7 @@ package room
 
 import memory.resourceSemaphore
 import screeps.api.Room
-import screeps.utils.lazyPerTick
+import utils.lazyPerTick
 import utils.log.ILogger
 import utils.log.LogLevel
 import utils.log.Logging

@@ -11,10 +11,10 @@ import memory.role
 import memory.stage
 import screeps.api.*
 import screeps.api.structures.*
-import screeps.utils.lazyPerTick
 import store.firstNonFilledOrNull
 import store.isNonFilled
 import utils.lazyPerNthTick
+import utils.lazyPerTick
 import utils.log.ILogging
 import utils.log.Logging
 

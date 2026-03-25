@@ -8,7 +8,7 @@ import memory.state
 import room.acquireResource
 import room.releaseResource
 import screeps.api.*
-import screeps.utils.lazyPerTick
+import utils.lazyPerTick
 import utils.log.ILogger
 import utils.log.LogLevel
 import utils.log.Logging

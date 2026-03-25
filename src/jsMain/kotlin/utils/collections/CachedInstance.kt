@@ -1,6 +1,6 @@
 package utils.collections
 
-import screeps.utils.lazyPerTick
+import utils.lazyPerTick
 
 class CachedInstance<V> {
     private val entries by lazyPerTick { mutableMapOf<Any, V>() }
