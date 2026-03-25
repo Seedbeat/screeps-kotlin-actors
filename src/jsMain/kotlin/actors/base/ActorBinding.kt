@@ -1,7 +1,7 @@
 package actors.base
 
 import screeps.api.*
-import utils.lazyPerTickNullable
+import utils.lazyPerTick
 
 interface ActorBinding<T> {
     val selfOrNull: T?
@@ -14,13 +14,13 @@ object NoBinding : ActorBinding<Unit> {
 }
 
 class GameObjectBinding<T : Identifiable>(id: String) : ActorBinding<T> {
-    override val selfOrNull: T? by lazyPerTickNullable { Game.getObjectById(id) }
+    override val selfOrNull: T? by lazyPerTick { Game.getObjectById(id) }
 }
 
 class GameRoomBinding(name: String) : ActorBinding<Room> {
-    override val selfOrNull: Room? by lazyPerTickNullable { Game.rooms[name] }
+    override val selfOrNull: Room? by lazyPerTick { Game.rooms[name] }
 }
 
 class GameCreepBinding(name: String) : ActorBinding<Creep> {
-    override val selfOrNull: Creep? by lazyPerTickNullable { Game.creeps[name] }
+    override val selfOrNull: Creep? by lazyPerTick { Game.creeps[name] }
 }
