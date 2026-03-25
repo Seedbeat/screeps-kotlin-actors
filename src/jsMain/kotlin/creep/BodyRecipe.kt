@@ -9,8 +9,8 @@ object BodyRecipe {
     fun selectBodySpecByAssignment(energyBudget: Int, assignment: CreepAssignment) = when (assignment) {
         is CreepAssignment.ControllerUpkeep -> scaled(
             energyBudget = energyBudget,
-            core = listOf(WORK, CARRY, MOVE),
-            segment = listOf(WORK, CARRY, MOVE, MOVE),
+            core = listOf(MOVE, WORK, CARRY),
+            segment = listOf(MOVE, WORK, CARRY, MOVE),
             maxRepeats = 2
         )
     }
