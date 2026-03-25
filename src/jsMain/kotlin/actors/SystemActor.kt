@@ -84,7 +84,7 @@ class SystemActor(id: String) :
                     currentRoom = creep.room.name,
                     assignment = assignment,
                     capabilities = CreepCapabilities.from(creep),
-                    lockedResourceId = creep.memory.lockedObjectId.takeIf { it.isNotBlank() }
+                    lockedResourceId = creep.memory.lockedObjectId
                 )
             }
         )

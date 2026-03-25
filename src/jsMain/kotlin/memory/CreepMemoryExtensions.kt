@@ -27,7 +27,7 @@ var CreepMemory.workObjectId: String by memoryValue { "" }
 
 
 var CreepMemory.homeRoom: String by memoryValue { "" }
-var CreepMemory.lockedObjectId: String by memoryValue { "" }
+var CreepMemory.lockedObjectId: String? by memoryValue()
 val CreepMemory.assignment: CreepAssignmentMemory by memoryNode(::CreepAssignmentMemory)
 
 fun createCreepMemory(
@@ -45,5 +45,4 @@ fun createCreepMemory(
     block: CreepMemory.() -> Unit = {}
 ) = jsObject<CreepMemory> {
     this.homeRoom = ""
-    this.lockedObjectId = ""
 }.also(block)

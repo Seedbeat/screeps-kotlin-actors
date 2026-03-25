@@ -18,7 +18,7 @@ object Cleanup : IEvent, ILogging by Logging<Cleanup>() {
                 .forEach { (name, memory) ->
                     log.info("Found outdated creep: $name")
 
-                    memory.lockedObjectId.takeIf { it.isNotEmpty() }?.let { id ->
+                    memory.lockedObjectId?.let { id ->
                         Game.getObjectById<Identifiable>(id)
                             ?.unsafeCast<RoomObjectNotNull>()
                             ?.room

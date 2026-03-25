@@ -43,7 +43,7 @@ class CreepIntentService<T>(
     }
 
     fun setLockedResourceId(resourceId: String?) {
-        self.memory.lockedObjectId = resourceId ?: ""
+        self.memory.lockedObjectId = resourceId
     }
 
     fun status(): CreepStatus = CreepStatus(
@@ -52,7 +52,7 @@ class CreepIntentService<T>(
         currentRoom = self.room.name,
         assignment = self.memory.assignment.value,
         capabilities = CreepCapabilities.from(self),
-        lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotBlank() }
+        lockedResourceId = self.memory.lockedObjectId
     )
 
     private suspend fun executeControllerUpkeep(assignment: CreepAssignment.ControllerUpkeep) {
@@ -135,7 +135,7 @@ class CreepIntentService<T>(
     }
 
     private suspend fun resolveHarvestSource(assignment: CreepAssignment.ControllerUpkeep): Source? {
-        val lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() }
+        val lockedResourceId = self.memory.lockedObjectId
         val lockedSource = lockedResourceId?.let { Game.getObjectById<Source>(it) }
 
         if (lockedSource != null && lockedSource.energy > 0) {
@@ -152,7 +152,7 @@ class CreepIntentService<T>(
 
     private suspend fun ensurePreferredResourceLock(roomName: String): String? {
         val lockedResourceId = self.memory.lockedObjectId
-        if (lockedResourceId.isNotEmpty()) {
+        if (lockedResourceId != null) {
             return lockedResourceId
         }
 
@@ -183,7 +183,7 @@ class CreepIntentService<T>(
     }
 
     private suspend fun releaseLockedResourceIfHeld() {
-        val resourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() } ?: return
+        val resourceId = self.memory.lockedObjectId ?: return
         val roomName = self.memory.assignment.value?.roomName
             ?: selfOrNull?.room?.name
             ?: return

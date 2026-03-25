@@ -11,11 +11,10 @@ import memory.role
 import memory.stage
 import screeps.api.*
 import screeps.api.structures.*
-import screeps.utils.contains
 import screeps.utils.lazyPerTick
 import store.firstNonFilledOrNull
 import store.isNonFilled
-import utils.*
+import utils.lazyPerNthTick
 import utils.log.ILogging
 import utils.log.Logging
 
@@ -32,7 +31,8 @@ class RoomContext(
             create(id, 0, max)
         } else {
             Game.creeps.values.filter {
-                contains(it.memory.lockedObjectId) && it.isResourceLocked
+                val lockedObjectId = it.memory.lockedObjectId
+                lockedObjectId != null && contains(lockedObjectId) && it.isResourceLocked
             }.forEach {
                 log.info("${it.name} release resource")
                 it.setUnassigned(room)

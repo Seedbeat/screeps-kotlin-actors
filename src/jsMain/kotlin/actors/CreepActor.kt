@@ -47,6 +47,6 @@ class CreepActor(
     override fun onDestroy() {
         val creepMemory = selfOrNull?.memory ?: Memory.creeps[self.name] ?: return
         creepMemory.assignment.value = null
-        creepMemory.lockedObjectId = ""
+        creepMemory.lockedObjectId = null
     }
 }

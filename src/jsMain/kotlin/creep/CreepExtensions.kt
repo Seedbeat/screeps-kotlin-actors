@@ -58,12 +58,12 @@ fun Creep.unlockResource(room: Room) {
     log.debug("unlock ${memory.lockedObjectId}")
 
     if (isResourceLocked) {
-        room.releaseResource(this.name, memory.lockedObjectId)
+        room.releaseResource(this.name, memory.lockedObjectId!!)
         memory.lockedObjectId = ""
     }
 }
 
-val Creep.isResourceLocked get() = memory.lockedObjectId.isNotEmpty()
+val Creep.isResourceLocked get() = memory.lockedObjectId != null
 
 fun <T : Identifiable> Creep.getLockedResource(): T? =
     if (isResourceLocked)
