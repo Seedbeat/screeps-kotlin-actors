@@ -1,7 +1,8 @@
 package actors
 
-import actors.RoomRequest.ReleaseResource
-import actors.RoomRequest.TryAcquireAnyResource
+import actors.CreepCapabilities.Companion.capabilities
+import actors.RoomRequest.ReleaseResourceById
+import actors.RoomRequest.TryAcquireResourceByType
 import actors.assignments.ControllerUpkeepPhase
 import actors.base.ActorApi
 import actors.base.ActorBinding
@@ -51,7 +52,7 @@ class CreepIntentService<T>(
         homeRoom = self.memory.homeRoom,
         currentRoom = self.room.name,
         assignment = self.memory.assignment.value,
-        capabilities = CreepCapabilities.from(self),
+        capabilities = self.capabilities,
         lockedResourceId = self.memory.lockedObjectId
     )
 
@@ -65,7 +66,7 @@ class CreepIntentService<T>(
 
         when (self.memory.assignment.phase) {
             ControllerUpkeepPhase.HARVEST -> executeHarvestPhase(assignment)
-            ControllerUpkeepPhase.UPGRADE -> executeUpgradePhase(assignment, controller)
+            ControllerUpkeepPhase.UPGRADE -> executeUpgradePhase(controller)
         }
     }
 
@@ -109,26 +110,23 @@ class CreepIntentService<T>(
         }
     }
 
-    private suspend fun executeUpgradePhase(
-        assignment: CreepAssignment.ControllerUpkeep,
-        controller: StructureController
-    ) {
+    private suspend fun executeUpgradePhase(controller: StructureController) {
         releaseLockedResourceIfHeld()
 
         if (self.energyStore.isEmpty) {
-            switchToHarvestPhase(assignment)
+            switchToHarvestPhase()
             return
         }
 
         when (val code = self.upgradeController(controller)) {
             OK -> {
                 if (self.energyStore.isEmpty) {
-                    switchToHarvestPhase(assignment)
+                    switchToHarvestPhase()
                 }
             }
 
             ERR_NOT_IN_RANGE -> self.moveTo(controller)
-            ERR_NOT_ENOUGH_RESOURCES -> switchToHarvestPhase(assignment)
+            ERR_NOT_ENOUGH_RESOURCES -> switchToHarvestPhase()
             ERR_INVALID_TARGET -> clearAssignmentState()
             else -> log.error("Controller upkeep upgrade failed with code $code")
         }
@@ -158,7 +156,7 @@ class CreepIntentService<T>(
 
         val acquiredResourceId: String? = requestFrom(
             actorId = roomName,
-            payload = TryAcquireAnyResource(
+            payload = TryAcquireResourceByType(
                 ownerId = id,
                 near = self.pos,
                 type = RoomResourceType.SOURCE
@@ -172,7 +170,7 @@ class CreepIntentService<T>(
         return acquiredResourceId
     }
 
-    private suspend fun switchToHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
+    private suspend fun switchToHarvestPhase() {
         releaseLockedResourceIfHeld()
         self.memory.assignment.phase = ControllerUpkeepPhase.HARVEST
     }
@@ -190,7 +188,7 @@ class CreepIntentService<T>(
 
         val released: Boolean? = requestFrom(
             roomName,
-            ReleaseResource(ownerId = id, resourceId = resourceId)
+            ReleaseResourceById(ownerId = id, resourceId = resourceId)
         )
 
         if (released == true) {

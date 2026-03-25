@@ -1,7 +1,5 @@
 package actors
 
-import actors.RoomRequest.ReleaseResource
-import actors.RoomRequest.StatusRequest
 import actors.RoomResponse.*
 import actors.base.*
 import memory.stage
@@ -68,16 +66,15 @@ class RoomActor(
     }
 
     override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {
-        StatusRequest -> StatusResponse(result = "room=$id")
-        is RoomRequest.TryAcquireResource -> TryAcquireResourceResponse(
+        is RoomRequest.TryAcquireResourceById -> TryAcquireResourceResponse(
             result = semaphoreService.tryAcquireResource(msg.ownerId, msg.resourceId)
         )
 
-        is RoomRequest.TryAcquireAnyResource -> TryAcquireAnyResourceResponse(
+        is RoomRequest.TryAcquireResourceByType -> TryAcquireAnyResourceResponse(
             result = semaphoreService.tryAcquireAnyResource(msg.ownerId, msg.near, msg.type)
         )
 
-        is ReleaseResource -> ReleaseResourceResponse(
+        is RoomRequest.ReleaseResourceById -> ReleaseResourceResponse(
             result = semaphoreService.releaseResource(msg.ownerId, msg.resourceId)
         )
     }
