@@ -1,7 +1,6 @@
-package actors
+package creep
 
 import screeps.api.*
-import utils.lazyOnce
 
 data class CreepCapabilities(
     val work: Int,
@@ -25,7 +24,5 @@ data class CreepCapabilities(
                 move = moveParts
             )
         }
-
-        val Creep.capabilities: CreepCapabilities by lazyOnce(::from)
     }
 }

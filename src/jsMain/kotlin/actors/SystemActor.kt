@@ -5,6 +5,7 @@ import actors.SystemRequest.QueryCreeps
 import actors.SystemResponse.CountCreepsResponse
 import actors.SystemResponse.QueryCreepsResponse
 import actors.base.*
+import creep.capabilities
 import memory.*
 import screeps.api.Game
 import screeps.api.Memory
@@ -83,7 +84,7 @@ class SystemActor(id: String) :
                     homeRoom = creep.memory.homeRoom,
                     currentRoom = creep.room.name,
                     assignment = assignment,
-                    capabilities = CreepCapabilities.from(creep),
+                    capabilities = creep.capabilities,
                     lockedResourceId = creep.memory.lockedObjectId
                 )
             }

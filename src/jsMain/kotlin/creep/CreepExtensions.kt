@@ -1,6 +1,7 @@
 package creep
 
 import Settings
+import creep.CreepCapabilities.Companion.from
 import creep.enums.State
 import invoke
 import memory.lockedObjectId
@@ -8,6 +9,7 @@ import memory.state
 import room.acquireResource
 import room.releaseResource
 import screeps.api.*
+import utils.lazyOnce
 import utils.lazyPerTick
 import utils.log.ILogger
 import utils.log.LogLevel
@@ -75,3 +77,5 @@ val Creep.state: Enum<State>
 fun Creep.state(state: State) {
     memory.state = state
 }
+
+val Creep.capabilities: CreepCapabilities by lazyOnce(::from)

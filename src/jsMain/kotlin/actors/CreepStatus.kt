@@ -1,5 +1,7 @@
 package actors
 
+import creep.CreepCapabilities
+
 data class CreepStatus(
     val actorId: String,
     val homeRoom: String,

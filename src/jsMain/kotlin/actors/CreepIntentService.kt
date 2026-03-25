@@ -1,11 +1,11 @@
 package actors
 
-import actors.CreepCapabilities.Companion.capabilities
 import actors.RoomRequest.ReleaseResourceById
 import actors.RoomRequest.TryAcquireResourceByType
 import actors.assignments.ControllerUpkeepPhase
 import actors.base.ActorApi
 import actors.base.ActorBinding
+import creep.capabilities
 import memory.assignment
 import memory.homeRoom
 import memory.lockedObjectId
