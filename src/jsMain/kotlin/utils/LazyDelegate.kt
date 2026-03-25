@@ -11,7 +11,7 @@ private class LazyDelegate<in P, T>(
 
     init {
         require(tickNth == null || tickNth in 1..Root.LOCAL_TIME_MAX) {
-            "tickNth must be between 1 and ${Root.LOCAL_TIME_MAX}"
+            "tickNth must be null or between 1 and ${Root.LOCAL_TIME_MAX}"
         }
     }
 
@@ -20,20 +20,29 @@ private class LazyDelegate<in P, T>(
         get() = backedValue as T
 
     private var initialized = false
+    private var lastTick = -1
     private var backedValue: T? = null
 
-    override fun getValue(thisRef: P, property: KProperty<*>): T {
-        if (!initialized) {
-            backedValue = compute(thisRef)
+    override fun getValue(thisRef: P, property: KProperty<*>): T = when {
+        !initialized -> {
             initialized = true
-
-            return value
+            computeValue(thisRef)
         }
 
-        if (tickNth != null && Root.localTime % tickNth == 0) {
-            backedValue = compute(thisRef)
+        tickNth == null -> value
+
+        lastTick != Root.localTime -> when {
+            tickNth == 1 -> computeValue(thisRef)
+            Root.localTime % tickNth == 0 -> computeValue(thisRef)
+            else -> value
         }
 
+        else -> value
+    }
+
+    private fun computeValue(thisRef: P): T {
+        lastTick = Root.localTime
+        backedValue = compute(thisRef)
         return value
     }
 }

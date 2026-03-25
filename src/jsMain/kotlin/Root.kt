@@ -9,9 +9,11 @@ import utils.log.Logging
 
 object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
+    const val LOCAL_TIME_MAX = 100
+
     var wasReset = true
 
-    val localTime: Int by lazyPerTick { Game.time % 100 }
+    val localTime: Int by lazyPerTick { Game.time % LOCAL_TIME_MAX }
 
     private val roomContext = mutableMapOf<String, RoomContext>()
 
