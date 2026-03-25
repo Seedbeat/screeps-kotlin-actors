@@ -10,6 +10,7 @@ import memory.homeRoom
 import memory.lockedObjectId
 import screeps.api.*
 import screeps.api.structures.StructureController
+import store.energyStore
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -69,33 +70,27 @@ class CreepIntentService<T>(
     }
 
     private suspend fun executeHarvestPhase(assignment: CreepAssignment.ControllerUpkeep) {
-        val usedCapacity = self.store.getUsedCapacity(RESOURCE_ENERGY) ?: 0
-        val freeCapacity = self.store.getFreeCapacity(RESOURCE_ENERGY) ?: 0
-
-        if (freeCapacity <= 0) {
+        if (self.energyStore.isFull) {
             switchToUpgradePhase()
             return
         }
 
-        val source = resolveNearestAvailableSource(assignment)
+        val source = resolveHarvestSource(assignment)
         if (source == null) {
-            if (usedCapacity > 0) {
+            if (self.energyStore.isNotEmpty) {
                 switchToUpgradePhase()
             }
             return
         }
 
-        if (source.energy <= 0 && usedCapacity > 0) {
+        if (source.energy <= 0 && self.energyStore.isNotEmpty) {
             switchToUpgradePhase()
             return
         }
 
         when (val code = self.harvest(source)) {
             OK -> {
-                val remainingFreeCapacity = self.store.getFreeCapacity(RESOURCE_ENERGY) ?: 0
-                val remainingEnergy = source.energy
-
-                if (remainingFreeCapacity <= 0 || (remainingEnergy <= 0 && usedCapacityNow() > 0)) {
+                if (self.energyStore.isFull || (source.energy <= 0 && self.energyStore.isNotEmpty)) {
                     switchToUpgradePhase()
                 }
             }
@@ -103,7 +98,7 @@ class CreepIntentService<T>(
             ERR_NOT_IN_RANGE -> self.moveTo(source)
 
             ERR_NOT_ENOUGH_RESOURCES -> {
-                if (usedCapacityNow() > 0) {
+                if (self.energyStore.isNotEmpty) {
                     switchToUpgradePhase()
                 }
             }
@@ -120,14 +115,14 @@ class CreepIntentService<T>(
     ) {
         releaseLockedResourceIfHeld()
 
-        if (usedCapacityNow() <= 0) {
+        if (self.energyStore.isEmpty) {
             switchToHarvestPhase(assignment)
             return
         }
 
         when (val code = self.upgradeController(controller)) {
             OK -> {
-                if (usedCapacityNow() <= 0) {
+                if (self.energyStore.isEmpty) {
                     switchToHarvestPhase(assignment)
                 }
             }
@@ -139,7 +134,7 @@ class CreepIntentService<T>(
         }
     }
 
-    private suspend fun resolveNearestAvailableSource(assignment: CreepAssignment.ControllerUpkeep): Source? {
+    private suspend fun resolveHarvestSource(assignment: CreepAssignment.ControllerUpkeep): Source? {
         val lockedResourceId = self.memory.lockedObjectId.takeIf { it.isNotEmpty() }
         val lockedSource = lockedResourceId?.let { Game.getObjectById<Source>(it) }
 
@@ -162,8 +157,8 @@ class CreepIntentService<T>(
         }
 
         val acquiredResourceId: String? = requestFrom(
-            roomName,
-            TryAcquireAnyResource(
+            actorId = roomName,
+            payload = TryAcquireAnyResource(
                 ownerId = id,
                 near = self.pos,
                 type = RoomResourceType.SOURCE
@@ -203,5 +198,5 @@ class CreepIntentService<T>(
         }
     }
 
-    private fun usedCapacityNow(): Int = self.store.getUsedCapacity(RESOURCE_ENERGY) ?: 0
+//    private fun usedCapacityNow(): Int = self.store.getUsedCapacity(RESOURCE_ENERGY) ?: 0
 }
