@@ -22,6 +22,9 @@ fun <T : Any> memoryValue(
     default: () -> T
 ) = MemoryValueDelegate(default(), RawCodec())
 
+fun <T : Any> memoryValue() =
+    MemoryNullableValueDelegate(RawCodec<T>())
+
 inline fun <reified T : Enum<T>> memoryEnum(
     default: () -> T
 ) = MemoryValueDelegate(default(), enumCodec())
