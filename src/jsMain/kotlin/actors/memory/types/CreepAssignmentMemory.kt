@@ -1,11 +1,9 @@
 package actors.memory.types
 
 import actors.CreepAssignment
-import actors.assignments.ControllerUpkeepPhase
-import actors.assignments.CreepAssignmentKind
+import actors.assignments.CreepAssignmentType
 import actors.memory.base.ObjectMemoryNode
 import actors.memory.delegates.memoryNodeEnum
-import actors.memory.delegates.memoryNodeValue
 import screeps.api.MemoryMarker
 
 class CreepAssignmentMemory(
@@ -13,39 +11,36 @@ class CreepAssignmentMemory(
     selfKey: String
 ) : ObjectMemoryNode<CreepAssignment>(parent, selfKey) {
 
-    var kind: CreepAssignmentKind by memoryNodeEnum { CreepAssignmentKind.NONE }
-    var roomName: String by memoryNodeValue { "" }
-    var controllerId: String by memoryNodeValue { "" }
-    var phase: ControllerUpkeepPhase by memoryNodeEnum { ControllerUpkeepPhase.HARVEST }
+    private var kind: CreepAssignmentType by memoryNodeEnum { CreepAssignmentType.NONE }
+
+    private val controllerUpkeep = ControllerUpkeepAssignmentMemory(parent, selfKey)
+    private val construction = ConstructionAssignmentMemory(parent, selfKey)
+
 
     override fun read(): CreepAssignment? = when (kind) {
-        CreepAssignmentKind.NONE -> null
-        CreepAssignmentKind.CONTROLLER_UPKEEP -> {
-            if (roomName.isBlank() || controllerId.isBlank()) {
-                null
-            } else {
-                CreepAssignment.ControllerUpkeep(
-                    roomName = roomName,
-                    controllerId = controllerId,
-                    phase = phase
-                )
-            }
-        }
+        CreepAssignmentType.NONE -> null
+        CreepAssignmentType.CONTROLLER_UPKEEP -> controllerUpkeep.value
+        CreepAssignmentType.CONSTRUCTION -> construction.value
     }
 
     override fun write(value: CreepAssignment) = when (value) {
         is CreepAssignment.ControllerUpkeep -> {
-            kind = CreepAssignmentKind.CONTROLLER_UPKEEP
-            roomName = value.roomName
-            controllerId = value.controllerId
-            phase = value.phase
+            kind = CreepAssignmentType.CONTROLLER_UPKEEP
+            controllerUpkeep.value = value
+        }
+
+        is CreepAssignment.Construction -> {
+            kind = CreepAssignmentType.CONSTRUCTION
+            construction.value = value
         }
     }
 
-    override fun clear() {
-        kind = CreepAssignmentKind.NONE
-        roomName = ""
-        controllerId = ""
-        phase = ControllerUpkeepPhase.HARVEST
+    override fun clear() = when (kind) {
+        CreepAssignmentType.NONE -> Unit
+        CreepAssignmentType.CONTROLLER_UPKEEP -> controllerUpkeep.value = null
+        CreepAssignmentType.CONSTRUCTION -> construction.value = null
+    }.also {
+        kind = CreepAssignmentType.NONE
     }
+
 }
