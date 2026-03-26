@@ -1,6 +1,6 @@
 package actors.assignments
 
-enum class ControllerUpkeepPhase {
+enum class CreepAssignmentPhase {
     HARVEST,
     UPGRADE
 }

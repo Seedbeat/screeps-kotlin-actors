@@ -15,7 +15,7 @@ import utils.log.Logging
 object SpawnerNew : ILogging by Logging<SpawnerNew>() {
 
     fun StructureSpawn.spawn(
-        assignment: CreepAssignment.ControllerUpkeep,
+        assignment: CreepAssignment,
         opt: SpawnOptions.() -> Unit = {}
     ): ScreepsReturnCode {
         val energyBudget = room.energyAvailable

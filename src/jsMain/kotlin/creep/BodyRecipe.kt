@@ -7,7 +7,8 @@ import screeps.api.*
 
 object BodyRecipe {
     fun selectBodySpecByAssignment(energyBudget: Int, assignment: CreepAssignment) = when (assignment) {
-        is CreepAssignment.ControllerUpkeep -> scaled(
+        is CreepAssignment.ControllerUpkeep,
+        is CreepAssignment.Construction -> scaled(
             energyBudget = energyBudget,
             core = listOf(MOVE, WORK, CARRY),
             segment = listOf(MOVE, WORK, CARRY, MOVE),
