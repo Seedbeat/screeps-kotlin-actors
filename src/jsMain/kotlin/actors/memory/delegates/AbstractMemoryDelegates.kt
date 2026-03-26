@@ -5,15 +5,15 @@ import actors.memory.io.MemoryIO
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-abstract class CodecValueDelegate<R, T : Any>(
+abstract class CodecValueDelegate<R, T>(
     private val default: T,
     private val codec: Codec<T>
 ) : ReadWriteProperty<R, T>, MemoryIO<R> {
 
     override fun getValue(thisRef: R, property: KProperty<*>): T {
-        val value = readMemory(thisRef, property)
-        return if (value != null) {
-            codec.deserialize(value)
+        val raw = readMemory(thisRef, property)
+        return if (raw != null) {
+            codec.deserialize(raw)
         } else {
             writeMemory(thisRef, property, codec.serialize(default))
             default
@@ -22,24 +22,5 @@ abstract class CodecValueDelegate<R, T : Any>(
 
     override fun setValue(thisRef: R, property: KProperty<*>, value: T) {
         writeMemory(thisRef, property, codec.serialize(value))
-    }
-}
-
-abstract class NullableCodecValueDelegate<R, T>(
-    private val codec: Codec<T>
-) : ReadWriteProperty<R, T?>, MemoryIO<R> {
-
-    override fun getValue(thisRef: R, property: KProperty<*>): T? {
-        val value = readMemory(thisRef, property)
-        return if (value != null) {
-            codec.deserialize(value)
-        } else {
-            writeMemory(thisRef, property, null)
-            null
-        }
-    }
-
-    override fun setValue(thisRef: R, property: KProperty<*>, value: T?) {
-        writeMemory(thisRef, property, value?.let(codec::serialize))
     }
 }

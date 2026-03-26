@@ -1,40 +1,36 @@
 package actors.memory.delegates
 
 import actors.base.Codec
+import actors.base.asNullable
 import actors.memory.codecs.RawCodec
 import actors.memory.codecs.enumCodec
 import actors.memory.io.MemoryIO
 import actors.memory.io.MemoryRawIO
 import screeps.api.MemoryMarker
 
-class MemoryValueDelegate<T : Any>(
+class MemoryValueDelegate<T>(
     default: T,
     codec: Codec<T>
 ) : CodecValueDelegate<MemoryMarker, T>(default, codec),
     MemoryIO<MemoryMarker> by MemoryRawIO
 
-class MemoryNullableValueDelegate<T>(
-    codec: Codec<T>
-) : NullableCodecValueDelegate<MemoryMarker, T>(codec),
-    MemoryIO<MemoryMarker> by MemoryRawIO
-
-fun <T : Any> memoryValue(
+fun <T> memoryValue(
     default: () -> T
-) = MemoryValueDelegate(default(), RawCodec())
+): MemoryValueDelegate<T> = MemoryValueDelegate(default(), codec = RawCodec())
 
-fun <T : Any> memoryValue() =
-    MemoryNullableValueDelegate(RawCodec<T>())
+fun <T> memoryValue(): MemoryValueDelegate<T?> =
+    MemoryValueDelegate(null, RawCodec<T>().asNullable())
 
 inline fun <reified T : Enum<T>> memoryEnum(
     default: () -> T
-) = MemoryValueDelegate(default(), enumCodec())
+): MemoryValueDelegate<T> = MemoryValueDelegate(default(), enumCodec())
 
-fun <T : Any> memoryObject(
+fun <T> memoryObject(
     codec: Codec<T>,
     default: () -> T
-) = MemoryValueDelegate(default(), codec)
+): MemoryValueDelegate<T> = MemoryValueDelegate(default(), codec)
 
-fun <T : Any> memoryObject(
+fun <T> memoryObject(
     codec: Codec<T>
-) = MemoryNullableValueDelegate(codec)
+): MemoryValueDelegate<T?> = MemoryValueDelegate(null, codec.asNullable())
 

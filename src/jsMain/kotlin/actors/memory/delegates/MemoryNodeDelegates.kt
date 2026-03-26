@@ -1,6 +1,7 @@
 package actors.memory.delegates
 
 import actors.base.Codec
+import actors.base.asNullable
 import actors.memory.base.MemoryNode
 import actors.memory.codecs.RawCodec
 import actors.memory.codecs.enumCodec
@@ -10,7 +11,7 @@ import screeps.api.MemoryMarker
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-class MemoryNodeValueDelegate<T : Any>(
+class MemoryNodeValueDelegate<T>(
     default: T,
     codec: Codec<T>
 ) : CodecValueDelegate<MemoryNode, T>(default, codec),
@@ -33,20 +34,17 @@ class MemoryNodeDelegate<T : MemoryNode>(
 
 fun <T : MemoryNode> memoryNode(
     factory: (MemoryMarker, String) -> T
-) = MemoryNodeDelegate(factory)
+): MemoryNodeDelegate<T> = MemoryNodeDelegate(factory)
 
 fun <T : Any> memoryNodeValue(
     default: () -> T,
-) = MemoryNodeValueDelegate(
-    default = default(),
-    codec = RawCodec()
-)
+): MemoryNodeValueDelegate<T> = MemoryNodeValueDelegate(default = default(), codec = RawCodec())
+
+fun <T> memoryNodeValue(): MemoryNodeValueDelegate<T?> =
+    MemoryNodeValueDelegate(default = null, codec = RawCodec<T>().asNullable())
 
 inline fun <reified T : Enum<T>> memoryNodeEnum(
     noinline default: () -> T
-) = MemoryNodeValueDelegate(
-    default = default(),
-    codec = enumCodec()
-)
+): MemoryNodeValueDelegate<T> = MemoryNodeValueDelegate(default = default(), codec = enumCodec())
 
 
