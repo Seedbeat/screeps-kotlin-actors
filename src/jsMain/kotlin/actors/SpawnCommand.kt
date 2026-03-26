@@ -7,4 +7,9 @@ sealed class SpawnCommand : Command {
         val roomName: String,
         val controllerId: String
     ) : SpawnCommand()
+
+    data class TrySpawnConstructionWorker(
+        val roomName: String,
+        val constructionSiteId: String
+    ) : SpawnCommand()
 }

@@ -26,7 +26,7 @@ object SpawnerNew : ILogging by Logging<SpawnerNew>() {
             body = body,
             opt = opt
         ) {
-            this.assignment.value = assignment
+            this.assignment = assignment
         }
     }
 

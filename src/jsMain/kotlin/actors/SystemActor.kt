@@ -59,7 +59,7 @@ class SystemActor(id: String) :
 
                 (msg.homeRoom == null || creep.memory.homeRoom == msg.homeRoom) &&
                         (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
-                        (msg.assignmentRoom == null || creep.memory.assignment.roomName == msg.assignmentRoom) &&
+                        (msg.assignmentRoom == null || creep.memory.assignment?.roomName == msg.assignmentRoom) &&
                         (msg.role == null || creep.memory.role == msg.role)
             }
         )
@@ -74,7 +74,7 @@ class SystemActor(id: String) :
                 if (msg.currentRoom != null && creep.room.name != msg.currentRoom) {
                     return@mapNotNull null
                 }
-                val assignment = creep.memory.assignment.value
+                val assignment = creep.memory.assignment
                 if (msg.assignmentRoom != null && assignment?.roomName != msg.assignmentRoom) {
                     return@mapNotNull null
                 }

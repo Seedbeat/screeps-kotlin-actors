@@ -20,6 +20,8 @@ class RoomActor(
         private const val SEMAPHORE_SYNC_INTERVAL = 25
     }
 
+    override fun maxIntentsPerTick(): Int = 2
+
     override val managers = mapOf(
         SpawnActor::class.simpleName!! to RoomSpawnsManager(self)
     )
@@ -63,6 +65,9 @@ class RoomActor(
         is RoomIntent.EnsureControllerSurvival -> {
             enqueue(msg)
         }
+        is RoomIntent.EnsureConstruction -> {
+            enqueue(msg)
+        }
     }
 
     override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {
@@ -87,10 +92,18 @@ class RoomActor(
                 interruptible = true
             )
         )
+        enqueue(
+            intent = RoomIntent.EnsureConstruction(
+                priority = IntentPriority.NORMAL,
+                createdTick = time,
+                interruptible = true
+            )
+        )
     }
 
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
         is RoomIntent.EnsureControllerSurvival -> planningService.ensureControllerSurvival()
+        is RoomIntent.EnsureConstruction -> planningService.ensureConstruction()
     }
 
     private fun scanRoom() {

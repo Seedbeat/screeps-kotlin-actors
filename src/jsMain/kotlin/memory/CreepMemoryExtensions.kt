@@ -1,7 +1,8 @@
 package memory
 
+import actors.CreepAssignment
 import actors.memory.delegates.memoryEnum
-import actors.memory.delegates.memoryNode
+import actors.memory.delegates.memoryNodeObject
 import actors.memory.delegates.memoryValue
 import actors.memory.types.CreepAssignmentMemory
 import creep.enums.CreepType
@@ -28,7 +29,7 @@ var CreepMemory.workObjectId: String by memoryValue { "" }
 
 var CreepMemory.homeRoom: String by memoryValue { "" }
 var CreepMemory.lockedObjectId: String? by memoryValue()
-val CreepMemory.assignment: CreepAssignmentMemory by memoryNode(::CreepAssignmentMemory)
+var CreepMemory.assignment: CreepAssignment? by memoryNodeObject(::CreepAssignmentMemory)
 
 fun createCreepMemory(
     type: CreepType, role: Role = Role.UNASSIGNED, block: CreepMemory.() -> Unit = {}

@@ -5,6 +5,7 @@ import actors.SystemRequest.QueryCreeps
 import actors.base.ActorApi
 import actors.base.ActorBinding
 import actors.base.IntentResultType
+import screeps.api.FIND_MY_CONSTRUCTION_SITES
 import screeps.api.FIND_MY_SPAWNS
 import screeps.api.Room
 import utils.log.ILogging
@@ -60,6 +61,53 @@ class RoomPlanningService<T>(
             payload = SpawnCommand.TrySpawnControllerSurvivalWorker(
                 roomName = self.name,
                 controllerId = controller.id
+            )
+        )
+        return IntentResultType.COMPLETED
+    }
+
+    suspend fun ensureConstruction(): IntentResultType {
+        val constructionSite = self.find(FIND_MY_CONSTRUCTION_SITES).firstOrNull()
+            ?: return IntentResultType.DROPPED
+
+        val creeps = systemRequest(payload = QueryCreeps(homeRoom = self.name))
+
+        val assignedBuilder = creeps.firstOrNull { creep ->
+            val assignment = creep.assignment as? CreepAssignment.Construction
+            assignment?.roomName == self.name && assignment.constructionSiteId == constructionSite.id
+        }
+
+        if (assignedBuilder != null) {
+            return IntentResultType.COMPLETED
+        }
+
+        val availableBuilder = creeps.firstOrNull { creep ->
+            creep.capabilities.canDoConstruction && creep.assignment == null
+        }
+
+        if (availableBuilder != null) {
+            sendTo(
+                availableBuilder.actorId,
+                payload = CreepCommand.Assign(
+                    assignment = CreepAssignment.Construction(
+                        roomName = self.name,
+                        constructionSiteId = constructionSite.id
+                    )
+                )
+            )
+            return IntentResultType.COMPLETED
+        }
+
+        val availableSpawnActorId = self.find(FIND_MY_SPAWNS)
+            .firstOrNull { spawn -> spawn.spawning == null && ActorSystem.contains(spawn.id) }
+            ?.id
+            ?: return IntentResultType.RETAINED
+
+        sendTo(
+            availableSpawnActorId,
+            payload = SpawnCommand.TrySpawnConstructionWorker(
+                roomName = self.name,
+                constructionSiteId = constructionSite.id
             )
         )
         return IntentResultType.COMPLETED
