@@ -1,7 +1,6 @@
 import actors.base.Actors
 import room.RoomContext
 import screeps.api.Game
-import screeps.utils.lazyPerTick
 import utils.CpuLogger
 import utils.log.ILogging
 import utils.log.LogLevel
@@ -13,7 +12,8 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
     var wasReset = true
 
-    val localTime: Int by lazyPerTick { Game.time % LOCAL_TIME_MAX }
+    inline val localTime: Int
+        get() = Game.time % LOCAL_TIME_MAX
 
     private val roomContext = mutableMapOf<String, RoomContext>()
 
