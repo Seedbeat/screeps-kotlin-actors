@@ -36,10 +36,11 @@ class CreepAssignmentMemory(
     }
 
     override fun clear() = when (kind) {
-        CreepAssignmentType.NONE -> Unit
-        CreepAssignmentType.CONTROLLER_UPKEEP -> controllerUpkeep.value = null
-        CreepAssignmentType.CONSTRUCTION -> construction.value = null
-    }.also {
+        CreepAssignmentType.NONE -> null
+        CreepAssignmentType.CONTROLLER_UPKEEP -> controllerUpkeep
+        CreepAssignmentType.CONSTRUCTION -> construction
+    }.let { memoryNode ->
+        memoryNode?.value = null
         kind = CreepAssignmentType.NONE
     }
 
