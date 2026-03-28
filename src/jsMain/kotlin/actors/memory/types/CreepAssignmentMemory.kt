@@ -33,6 +33,9 @@ class CreepAssignmentMemory(
             kind = CreepAssignmentType.CONSTRUCTION
             construction.value = value
         }
+
+        is CreepAssignment.EnergyTransfer ->
+            error("CreepAssignment.EnergyKeep persistence is not implemented yet")
     }
 
     override fun clear() = when (kind) {

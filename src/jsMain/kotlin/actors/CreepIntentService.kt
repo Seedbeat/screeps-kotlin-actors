@@ -29,6 +29,7 @@ class CreepIntentService<T>(
             null -> releaseLockedResourceIfHeld()
             is CreepAssignment.ControllerUpkeep -> executeControllerUpkeep(assignment)
             is CreepAssignment.Construction -> executeConstruction(assignment)
+            is CreepAssignment.EnergyTransfer -> log.warn("EnergyKeep assignment is not implemented yet for creep $id")
         }
     }
 

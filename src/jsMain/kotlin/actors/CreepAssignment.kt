@@ -25,4 +25,12 @@ sealed class CreepAssignment {
     ) : PhaseAssignment() {
         override fun withPhase(phase: CreepAssignmentPhase) = copy(phase = phase)
     }
+
+    data class EnergyTransfer(
+        override val roomName: String,
+        val targetId: String,
+        override val phase: CreepAssignmentPhase = CreepAssignmentPhase.HARVEST
+    ) : PhaseAssignment() {
+        override fun withPhase(phase: CreepAssignmentPhase) = copy(phase = phase)
+    }
 }
