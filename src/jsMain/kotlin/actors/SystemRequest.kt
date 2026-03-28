@@ -10,20 +10,20 @@ sealed class SystemRequest<T> : Request<T> {
 
         data class Creeps(
             override val limit: Int? = null,
-            val filter: (Creep, CreepAssignment?) -> Boolean
+            val predicate: (Creep, CreepAssignment?) -> Boolean
         ) : Query<List<CreepStatus>>()
 
         data class CreepsByAssignment<T : CreepAssignment>(
             override val limit: Int? = null,
             val type: KClass<T>,
-            val filter: (Creep, T) -> Boolean
+            val predicate: (Creep, T) -> Boolean
         ) : Query<List<CreepStatus>>()
 
         companion object {
             inline fun <reified T : CreepAssignment> creepsByAssignment(
                 limit: Int? = null,
-                noinline filter: (Creep, T) -> Boolean
-            ) = CreepsByAssignment(limit, type = T::class, filter)
+                noinline predicate: (Creep, T) -> Boolean
+            ) = CreepsByAssignment(limit, type = T::class, predicate)
         }
     }
 }

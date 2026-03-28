@@ -56,7 +56,7 @@ class SystemActor(id: String) :
 
         val assignment = creep.memory.assignment
         CreepStatus(name, creep, assignment)
-            .takeIf { msg.filter(creep, assignment) }
+            .takeIf { msg.predicate(creep, assignment) }
     })
 
     private fun <T : CreepAssignment> queryCreepsByAssignment(
@@ -64,7 +64,7 @@ class SystemActor(id: String) :
     ) = SystemResponse.Query.CreepsResponse(result = queryCreepsBase(limit = msg.limit) { name, creep ->
 
         msg.type.safeCast(creep.memory.assignment)
-            ?.takeIf { assignment -> msg.filter(creep, assignment) }
+            ?.takeIf { assignment -> msg.predicate(creep, assignment) }
             ?.let { assignment -> CreepStatus(name, creep, assignment) }
     })
 
