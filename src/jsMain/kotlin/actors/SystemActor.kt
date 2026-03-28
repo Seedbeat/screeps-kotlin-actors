@@ -1,19 +1,13 @@
 package actors
 
-import actors.SystemRequest.CountCreeps
-import actors.SystemRequest.QueryCreeps
-import actors.SystemResponse.CountCreepsResponse
-import actors.SystemResponse.QueryCreepsResponse
 import actors.base.*
-import creep.capabilities
-import memory.*
-import screeps.api.Game
-import screeps.api.Memory
-import screeps.api.get
-import screeps.api.keys
+import memory.assignment
+import memory.delete
+import screeps.api.*
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
+import kotlin.reflect.safeCast
 
 class SystemActor(id: String) :
     ActorBase<Unit, SystemCommand, SystemRequest<*>, SystemResponse<*>>(id),
@@ -52,43 +46,44 @@ class SystemActor(id: String) :
     }
 
     override suspend fun processRequest(msg: SystemRequest<*>): SystemResponse<*> = when (msg) {
-        is CountCreeps -> CountCreepsResponse(
-            result = Game.creeps.keys.count { name ->
-                val creep = Game.creeps[name]
-                    ?: return@count false
+        is SystemRequest.Query.Creeps -> queryCreeps(msg)
+        is SystemRequest.Query.CreepsByAssignment<*> -> queryCreepsByAssignment(msg)
+    }
 
-                (msg.homeRoom == null || creep.memory.homeRoom == msg.homeRoom) &&
-                        (msg.currentRoom == null || creep.room.name == msg.currentRoom) &&
-                        (msg.assignmentRoom == null || creep.memory.assignment?.roomName == msg.assignmentRoom) &&
-                        (msg.role == null || creep.memory.role == msg.role)
-            }
-        )
-        is QueryCreeps -> QueryCreepsResponse(
-            result = Game.creeps.keys.mapNotNull { name ->
-                val creep = Game.creeps[name]
-                    ?: return@mapNotNull null
+    private fun queryCreeps(
+        msg: SystemRequest.Query.Creeps
+    ) = SystemResponse.Query.CreepsResponse(result = queryCreepsBase(limit = msg.limit) { name, creep ->
 
-                if (msg.homeRoom != null && creep.memory.homeRoom != msg.homeRoom) {
-                    return@mapNotNull null
-                }
-                if (msg.currentRoom != null && creep.room.name != msg.currentRoom) {
-                    return@mapNotNull null
-                }
-                val assignment = creep.memory.assignment
-                if (msg.assignmentRoom != null && assignment?.roomName != msg.assignmentRoom) {
-                    return@mapNotNull null
-                }
+        val assignment = creep.memory.assignment
+        CreepStatus(name, creep, assignment)
+            .takeIf { msg.filter(creep, assignment) }
+    })
 
-                CreepStatus(
-                    actorId = name,
-                    homeRoom = creep.memory.homeRoom,
-                    currentRoom = creep.room.name,
-                    assignment = assignment,
-                    capabilities = creep.capabilities,
-                    lockedResourceId = creep.memory.lockedObjectId
-                )
-            }
-        )
+    private fun <T : CreepAssignment> queryCreepsByAssignment(
+        msg: SystemRequest.Query.CreepsByAssignment<T>
+    ) = SystemResponse.Query.CreepsResponse(result = queryCreepsBase(limit = msg.limit) { name, creep ->
+
+        msg.type.safeCast(creep.memory.assignment)
+            ?.takeIf { assignment -> msg.filter(creep, assignment) }
+            ?.let { assignment -> CreepStatus(name, creep, assignment) }
+    })
+
+    private inline fun <R> queryCreepsBase(
+        limit: Int? = null,
+        transform: (name: String, creep: Creep) -> R?
+    ): List<R> {
+        val result = mutableListOf<R>()
+
+        for (name in Game.creeps.keys) {
+            if (limit != null && result.size >= limit) break
+
+            val creep = Game.creeps[name] ?: continue
+            val item = transform(name, creep) ?: continue
+
+            result += item
+        }
+
+        return result
     }
 
     override fun onDestroy() {
