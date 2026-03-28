@@ -103,6 +103,30 @@ class CreepIntentService<T>(
         }
     }
 
+//    private suspend fun executeEnergyKeep(assignment: CreepAssignment.EnergyTransfer) {
+//        val site = resolveRoomObject<Structure>(assignment, assignment.targetId)
+//
+//        if (site == null) {
+//            clearAssignmentState()
+//            return
+//        }
+//
+//        when (assignment.phase) {
+//            CreepAssignmentPhase.HARVEST -> executeHarvest(
+//                roomName = assignment.roomName,
+//                anchor = site.pos,
+//                onHarvestDone = { changePhase(assignment, CreepAssignmentPhase.WORK) }
+//            )
+//
+//            CreepAssignmentPhase.WORK -> executeEnergyWork(
+//                assignment = assignment,
+//                target = site,
+//                action = { transfer(site, RESOURCE_ENERGY) },
+//                onWorkDone = { changePhase(assignment, CreepAssignmentPhase.HARVEST) }
+//            )
+//        }
+//    }
+
     private suspend fun <T : RoomObject> executeEnergyWork(
         assignment: CreepAssignment,
         target: T,
@@ -221,7 +245,7 @@ class CreepIntentService<T>(
     private fun <T> resolveRoomObject(
         assignment: CreepAssignment,
         id: String
-    ): T? where T : RoomObject, T : Identifiable {
+    ): T? where T : HasPosition, T : Identifiable {
 
         val obj = Game.getObjectById<T>(id)
             ?: return null

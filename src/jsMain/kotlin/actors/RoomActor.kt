@@ -2,6 +2,7 @@ package actors
 
 import actors.RoomResponse.*
 import actors.base.*
+import memory.planningCache
 import memory.stage
 import screeps.api.Room
 import utils.log.ILogging
@@ -18,6 +19,7 @@ class RoomActor(
     companion object {
         private const val STAGE_SYNC_INTERVAL = 19
         private const val SEMAPHORE_SYNC_INTERVAL = 25
+        private const val PLANNING_CACHE_SYNC_INTERVAL = 10
     }
 
     override fun maxIntentsPerTick(): Int = 2
@@ -38,6 +40,7 @@ class RoomActor(
             log.info("Bootstrapping room $id")
             processCommand(RoomCommand.Scan)
             processCommand(RoomCommand.SyncStage)
+            processCommand(RoomCommand.SyncPlanningCache)
             processCommand(RoomCommand.SyncSemaphores)
 
             // Should be last
@@ -48,6 +51,7 @@ class RoomActor(
             log.info("Room $id tick")
             processCommand(RoomCommand.Scan)
             msg.onEach(STAGE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncStage) }
+            msg.onEach(PLANNING_CACHE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncPlanningCache) }
             msg.onEach(SEMAPHORE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncSemaphores) }
 
             processIntents(msg.time)
@@ -60,6 +64,7 @@ class RoomActor(
     override suspend fun processCommand(msg: RoomCommand) = when (msg) {
         is RoomCommand.Scan -> scanRoom()
         is RoomCommand.SyncStage -> syncStage()
+        is RoomCommand.SyncPlanningCache -> syncPlanningCache()
         is RoomCommand.SyncSemaphores -> semaphoreService.syncSemaphores()
 
         is RoomIntent.EnsureControllerSurvival -> {
@@ -119,6 +124,10 @@ class RoomActor(
         if (current != previous) {
             log.info("Room stage changed: $previous -> $current")
         }
+    }
+
+    private fun syncPlanningCache() {
+        self.memory.planningCache = RoomPlanningAnalyzer.analyze(self)
     }
 
 }
