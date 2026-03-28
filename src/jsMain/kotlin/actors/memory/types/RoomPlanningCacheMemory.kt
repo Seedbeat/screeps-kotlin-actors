@@ -23,6 +23,7 @@ class RoomPlanningCacheMemory(
     var hasTerminal: Boolean? by memoryNodeValue()
     var constructionSiteCount: Int? by memoryNodeValue()
     var remainingConstructionWork: Int? by memoryNodeValue()
+    var weightedRemainingConstructionWork: Int? by memoryNodeValue()
 
     override fun read(): RoomPlanningCache? = RoomPlanningCache(
         updatedAt = updatedAt ?: return null,
@@ -35,7 +36,8 @@ class RoomPlanningCacheMemory(
         hasStorage = hasStorage ?: return null,
         hasTerminal = hasTerminal ?: return null,
         constructionSiteCount = constructionSiteCount ?: return null,
-        remainingConstructionWork = remainingConstructionWork ?: return null
+        remainingConstructionWork = remainingConstructionWork ?: return null,
+        weightedRemainingConstructionWork = weightedRemainingConstructionWork ?: return null
     )
 
     override fun write(value: RoomPlanningCache) {
@@ -50,6 +52,7 @@ class RoomPlanningCacheMemory(
         hasTerminal = value.hasTerminal
         constructionSiteCount = value.constructionSiteCount
         remainingConstructionWork = value.remainingConstructionWork
+        weightedRemainingConstructionWork = value.weightedRemainingConstructionWork
     }
 
     override fun clear() {
@@ -64,5 +67,6 @@ class RoomPlanningCacheMemory(
         deleteNodeValue(::hasTerminal.name)
         deleteNodeValue(::constructionSiteCount.name)
         deleteNodeValue(::remainingConstructionWork.name)
+        deleteNodeValue(::weightedRemainingConstructionWork.name)
     }
 }

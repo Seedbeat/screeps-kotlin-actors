@@ -1,9 +1,15 @@
 package actors
 
+import actors.heuristics.ConstructionSiteHeuristics
+import actors.heuristics.EnergyHeuristics
+import actors.heuristics.RoomHeuristics
 import creep.BodyRecipe
 import memory.stage
 import room.RoomStage
-import screeps.api.*
+import screeps.api.BUILD_POWER
+import screeps.api.ConstructionSite
+import screeps.api.Room
+import screeps.api.WORK
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -15,22 +21,26 @@ object ConstructionPlanningPolicy {
         constructionSites: Array<ConstructionSite>,
         assignedSiteCounts: Map<String, Int>
     ): ConstructionPlanningAnalysis {
+
+        val stage = stage(room, planningCache)
+        val maxBuildersCap = RoomHeuristics.maxBuildersCap(stage)
+
         val targetSite = selectTargetSite(room, constructionSites, assignedSiteCounts)
             ?: return ConstructionPlanningAnalysis(
                 targetSite = null,
                 desiredThroughput = 0,
-                builderCountCap = maxBuildersCap(planningCache?.stage ?: room.memory.stage),
+                builderCountCap = maxBuildersCap,
                 targetSiteCapacity = 0,
                 targetSiteAssigned = 0
             )
 
-        val targetSiteCapacity = constructionSiteCapacity(targetSite)
+        val targetSiteCapacity = ConstructionSiteHeuristics.siteBuildersCapacity(targetSite)
         val targetSiteAssigned = assignedSiteCounts[targetSite.id] ?: 0
 
         return ConstructionPlanningAnalysis(
             targetSite = targetSite,
-            desiredThroughput = desiredThroughput(room, planningCache, constructionSites, targetSite),
-            builderCountCap = maxBuildersCap(planningCache?.stage ?: room.memory.stage),
+            desiredThroughput = desiredThroughput(room, planningCache, targetSite),
+            builderCountCap = maxBuildersCap,
             targetSiteCapacity = targetSiteCapacity,
             targetSiteAssigned = targetSiteAssigned
         )
@@ -42,10 +52,9 @@ object ConstructionPlanningPolicy {
     private fun desiredThroughput(
         room: Room,
         planningCache: RoomPlanningCache?,
-        constructionSites: Array<ConstructionSite>,
         primarySite: ConstructionSite
     ): Int {
-        val remainingWork = weightedRemainingConstructionWork(planningCache, constructionSites)
+        val remainingWork = planningCache?.weightedRemainingConstructionWork ?: 0
         if (remainingWork <= 0) {
             return 0
         }
@@ -56,72 +65,20 @@ object ConstructionPlanningPolicy {
         return requiredThroughput.coerceAtMost(maxThroughput)
     }
 
-    private fun weightedRemainingConstructionWork(
-        planningCache: RoomPlanningCache?,
-        constructionSites: Array<ConstructionSite>
-    ): Int {
-        if (planningCache != null && planningCache.constructionSiteCount == constructionSites.size) {
-            val liveWeighted = constructionSites.sumOf { site ->
-                ((site.progressTotal - site.progress).coerceAtLeast(0) * constructionPriorityWeight(site)).roundToInt()
-            }
-
-            val liveRaw = constructionSites.sumOf { site ->
-                (site.progressTotal - site.progress).coerceAtLeast(0)
-            }
-
-            if (liveRaw == planningCache.remainingConstructionWork) {
-                return liveWeighted
-            }
-        }
-
-        return constructionSites.sumOf { site ->
-            ((site.progressTotal - site.progress).coerceAtLeast(0) * constructionPriorityWeight(site)).roundToInt()
-        }
-    }
-
     private fun constructionTargetTicks(
         room: Room,
         planningCache: RoomPlanningCache?,
         primarySite: ConstructionSite
     ): Int {
-        val baseTicks = when (planningCache?.stage ?: room.memory.stage) {
-            RoomStage.Uninitialized,
-            RoomStage.Stage1 -> 1800
 
-            RoomStage.Stage2,
-            RoomStage.Stage3 -> 1200
+        val stage = stage(room, planningCache)
+        val baseTicks = RoomHeuristics.targetBuildTicks(stage)
 
-            RoomStage.Stage4,
-            RoomStage.Stage5 -> 800
+        val energyRatio = EnergyHeuristics.energyRatio(room)
+        val energyModifier = EnergyHeuristics.energyRatioModifier(energyRatio)
 
-            RoomStage.Stage6,
-            RoomStage.Stage7 -> 500
-
-            RoomStage.Stage8,
-            RoomStage.StageMax -> 300
-        }
-
-        val energyRatio = if (room.energyCapacityAvailable <= 0) {
-            0.0
-        } else {
-            room.energyAvailable.toDouble() / room.energyCapacityAvailable.toDouble()
-        }
-
-        val energyModifier = when {
-            energyRatio >= 0.9 -> 0.75
-            energyRatio >= 0.6 -> 1.0
-            energyRatio >= 0.3 -> 1.2
-            else -> 1.5
-        }
-
-        val priorityModifier = when (constructionPriority(primarySite)) {
-            0 -> 0.5
-            1 -> 0.7
-            2 -> 0.9
-            3 -> 1.1
-            4 -> 1.4
-            else -> 1.0
-        }
+        val primarySitePriority = ConstructionSiteHeuristics.sitePriority(primarySite)
+        val priorityModifier = ConstructionSiteHeuristics.priorityModifier(primarySitePriority)
 
         return max(100, (baseTicks * energyModifier * priorityModifier).roundToInt())
     }
@@ -131,26 +88,13 @@ object ConstructionPlanningPolicy {
         planningCache: RoomPlanningCache?,
         primarySite: ConstructionSite
     ): Int {
-        val maxBuilders = maxBuildersCap(planningCache?.stage ?: room.memory.stage)
-        val energyBudget = planningCache?.energyCapacityAvailable ?: room.energyCapacityAvailable
+        val stage = stage(room, planningCache)
+        val maxBuilders = RoomHeuristics.maxBuildersCap(stage)
+
+        val energyBudget = capacityAvailable(room, planningCache)
         val perBuilderThroughput = max(BUILD_POWER, constructionThroughput(room, primarySite, energyBudget))
+
         return maxBuilders * perBuilderThroughput
-    }
-
-    private fun maxBuildersCap(stage: RoomStage): Int = when (stage) {
-        RoomStage.Uninitialized,
-        RoomStage.Stage1 -> 1
-
-        RoomStage.Stage2,
-        RoomStage.Stage3 -> 2
-
-        RoomStage.Stage4,
-        RoomStage.Stage5 -> 3
-
-        RoomStage.Stage6,
-        RoomStage.Stage7,
-        RoomStage.Stage8,
-        RoomStage.StageMax -> 4
     }
 
     private fun constructionThroughput(room: Room, targetSite: ConstructionSite, energyBudget: Int): Int {
@@ -174,9 +118,11 @@ object ConstructionPlanningPolicy {
         }
 
         return constructionSites
-            .filter { site -> (assignedSiteCounts[site.id] ?: 0) < constructionSiteCapacity(site) }
+            .filter { site ->
+                (assignedSiteCounts[site.id] ?: 0) < ConstructionSiteHeuristics.siteBuildersCapacity(site)
+            }
             .sortedWith(
-                compareBy<ConstructionSite> { constructionPriority(it) }
+                compareBy(ConstructionSiteHeuristics::sitePriority)
                     .thenBy { assignedSiteCounts[it.id] ?: 0 }
                     .thenBy { room.controller?.pos?.getRangeTo(it.pos) ?: 0 }
                     .thenByDescending { it.progressTotal - it.progress }
@@ -184,36 +130,9 @@ object ConstructionPlanningPolicy {
             .firstOrNull()
     }
 
-    private fun constructionSiteCapacity(site: ConstructionSite): Int = when (site.structureType) {
-        STRUCTURE_SPAWN,
-        STRUCTURE_STORAGE,
-        STRUCTURE_TERMINAL -> 2
+    private fun stage(room: Room, planningCache: RoomPlanningCache?): RoomStage =
+        planningCache?.stage ?: room.memory.stage
 
-        STRUCTURE_RAMPART -> 2
-        STRUCTURE_ROAD -> 1
-        else -> 1
-    }
-
-    private fun constructionPriorityWeight(site: ConstructionSite): Double = when (constructionPriority(site)) {
-        0 -> 2.5
-        1 -> 1.75
-        2 -> 1.25
-        3 -> 1.0
-        4 -> 0.5
-        else -> 1.0
-    }
-
-    private fun constructionPriority(site: ConstructionSite): Int = when (site.structureType) {
-        STRUCTURE_SPAWN -> 0
-        STRUCTURE_EXTENSION,
-        STRUCTURE_TOWER -> 1
-
-        STRUCTURE_STORAGE,
-        STRUCTURE_TERMINAL,
-        STRUCTURE_CONTAINER -> 2
-
-        STRUCTURE_RAMPART -> 3
-        STRUCTURE_ROAD -> 4
-        else -> 5
-    }
+    private fun capacityAvailable(room: Room, planningCache: RoomPlanningCache?): Int =
+        planningCache?.energyCapacityAvailable ?: room.energyCapacityAvailable
 }

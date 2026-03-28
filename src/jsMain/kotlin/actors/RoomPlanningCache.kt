@@ -13,5 +13,6 @@ data class RoomPlanningCache(
     val hasStorage: Boolean,
     val hasTerminal: Boolean,
     val constructionSiteCount: Int,
-    val remainingConstructionWork: Int
+    val remainingConstructionWork: Int,
+    val weightedRemainingConstructionWork: Int
 )
