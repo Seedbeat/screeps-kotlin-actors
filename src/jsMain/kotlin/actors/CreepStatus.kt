@@ -1,6 +1,10 @@
 package actors
 
 import creep.CreepCapabilities
+import creep.capabilities
+import memory.homeRoom
+import memory.lockedObjectId
+import screeps.api.Creep
 
 data class CreepStatus(
     val actorId: String,
@@ -9,4 +13,13 @@ data class CreepStatus(
     val assignment: CreepAssignment?,
     val capabilities: CreepCapabilities,
     val lockedResourceId: String?
-)
+) {
+    constructor(name: String, creep: Creep, assignment: CreepAssignment?) : this(
+        actorId = name,
+        homeRoom = creep.memory.homeRoom,
+        currentRoom = creep.room.name,
+        assignment = assignment,
+        capabilities = creep.capabilities,
+        lockedResourceId = creep.memory.lockedObjectId
+    )
+}
