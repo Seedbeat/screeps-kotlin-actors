@@ -13,4 +13,7 @@ interface MessagingApi {
 
     fun selfSend(payload: Payload): Boolean
     suspend fun <T> selfRequest(payload: Request<T>): T
+
+    fun Payload.sendTo(actorId: String): Boolean = sendTo(actorId, this)
+    suspend fun <T> Request<T>.request(actorId: String): T = requestFrom(actorId, this)
 }
