@@ -1,15 +1,15 @@
 package actors
 
+import actors.CreepAssignment.EnergyTransfer.Goal
 import actors.RoomRequest.ReleaseResourceById
 import actors.RoomRequest.TryAcquireResourceByType
 import actors.assignments.CreepAssignmentPhase
 import actors.base.ActorApi
 import actors.base.ActorBinding
-import creep.capabilities
 import memory.assignment
-import memory.homeRoom
 import memory.lockedObjectId
 import screeps.api.*
+import screeps.api.structures.Structure
 import screeps.api.structures.StructureController
 import store.energyStore
 import utils.log.ILogging
@@ -24,110 +24,79 @@ class CreepIntentService<T>(
         where T : ActorApi,
               T : ActorBinding<Creep> {
 
-    suspend fun executeAssignment() {
-        when (val assignment = self.memory.assignment) {
-            null -> releaseLockedResourceIfHeld()
-            is CreepAssignment.ControllerUpkeep -> executeControllerUpkeep(assignment)
-            is CreepAssignment.Construction -> executeConstruction(assignment)
-            is CreepAssignment.EnergyTransfer -> log.warn("EnergyKeep assignment is not implemented yet for creep $id")
-        }
+    suspend fun executeAssignment() = when (val assignment = self.memory.assignment) {
+        null -> releaseLockedResourceIfHeld()
+        is CreepAssignment.ControllerUpkeep -> executeControllerUpkeep(assignment)
+        is CreepAssignment.Construction -> executeConstruction(assignment)
+        is CreepAssignment.EnergyTransfer -> executeEnergyTransfer(assignment)
     }
 
     suspend fun assign(assignment: CreepAssignment) {
         replaceAssignment(assignment)
     }
 
-    suspend fun clearAssignmentState(): Boolean {
+    suspend fun clearAssignmentState() {
         replaceAssignment(null)
-        return true
     }
 
     fun setLockedResourceId(resourceId: String?) {
         self.memory.lockedObjectId = resourceId
     }
 
-    fun status(): CreepStatus = CreepStatus(
-        actorId = id,
-        homeRoom = self.memory.homeRoom,
-        currentRoom = self.room.name,
-        assignment = self.memory.assignment,
-        capabilities = self.capabilities,
-        lockedResourceId = self.memory.lockedObjectId
-    )
-
     private suspend fun executeControllerUpkeep(assignment: CreepAssignment.ControllerUpkeep) {
-        val controller = resolveRoomObject<StructureController>(assignment, assignment.controllerId)
+        val target = resolveRoomObject<StructureController>(assignment, assignment.controllerId)
+            ?: return clearAssignmentState()
 
-        if (controller == null) {
-            clearAssignmentState()
-            return
-        }
-
-        when (assignment.phase) {
-            CreepAssignmentPhase.HARVEST -> executeHarvest(
-                roomName = assignment.roomName,
-                anchor = controller.pos,
-                onHarvestDone = { changePhase(assignment, CreepAssignmentPhase.WORK) }
-            )
-
-            CreepAssignmentPhase.WORK -> executeEnergyWork(
-                assignment = assignment,
-                target = controller,
-                action = { upgradeController(controller) },
-                onWorkDone = { changePhase(assignment, CreepAssignmentPhase.HARVEST) }
-            )
-        }
+        executeHarvestBasedWork(assignment, target, action = Creep::upgradeController)
     }
 
     private suspend fun executeConstruction(assignment: CreepAssignment.Construction) {
-        val site = resolveRoomObject<ConstructionSite>(assignment, assignment.constructionSiteId)
+        val target = resolveRoomObject<ConstructionSite>(assignment, assignment.constructionSiteId)
+            ?: return clearAssignmentState()
 
-        if (site == null) {
-            clearAssignmentState()
-            return
-        }
+        executeHarvestBasedWork(assignment, target, action = Creep::build)
+    }
 
-        when (assignment.phase) {
-            CreepAssignmentPhase.HARVEST -> executeHarvest(
-                roomName = assignment.roomName,
-                anchor = site.pos,
-                onHarvestDone = { changePhase(assignment, CreepAssignmentPhase.WORK) }
-            )
+    private suspend fun executeEnergyTransfer(assignment: CreepAssignment.EnergyTransfer) {
+        val structure = resolveRoomObject<Structure>(assignment, assignment.targetId)
+            ?: return clearAssignmentState()
 
-            CreepAssignmentPhase.WORK -> executeEnergyWork(
-                assignment = assignment,
-                target = site,
-                action = { build(site) },
-                onWorkDone = { changePhase(assignment, CreepAssignmentPhase.HARVEST) }
-            )
+        executeHarvestBasedWork(assignment, structure) {
+            val target = it.unsafeCast<StoreOwner>()
+            when (assignment.goal) {
+                is Goal.UntilFull -> transfer(target, RESOURCE_ENERGY)
+                is Goal.Amount -> transfer(target, RESOURCE_ENERGY, assignment.goal.amount)
+
+                is Goal.Percent ->
+                    if (target.energyStore.percentage < assignment.goal.percentage)
+                        transfer(target, RESOURCE_ENERGY)
+                    else
+                        ERR_INVALID_TARGET
+
+            }
         }
     }
 
-//    private suspend fun executeEnergyKeep(assignment: CreepAssignment.EnergyTransfer) {
-//        val site = resolveRoomObject<Structure>(assignment, assignment.targetId)
-//
-//        if (site == null) {
-//            clearAssignmentState()
-//            return
-//        }
-//
-//        when (assignment.phase) {
-//            CreepAssignmentPhase.HARVEST -> executeHarvest(
-//                roomName = assignment.roomName,
-//                anchor = site.pos,
-//                onHarvestDone = { changePhase(assignment, CreepAssignmentPhase.WORK) }
-//            )
-//
-//            CreepAssignmentPhase.WORK -> executeEnergyWork(
-//                assignment = assignment,
-//                target = site,
-//                action = { transfer(site, RESOURCE_ENERGY) },
-//                onWorkDone = { changePhase(assignment, CreepAssignmentPhase.HARVEST) }
-//            )
-//        }
-//    }
+    private suspend fun <T> executeHarvestBasedWork(
+        assignment: CreepAssignment.PhaseAssignment,
+        target: T,
+        action: suspend Creep.(T) -> ScreepsReturnCode
+    ) where T : HasPosition, T : Identifiable = when (assignment.phase) {
+        CreepAssignmentPhase.HARVEST -> executeHarvest(
+            roomName = assignment.roomName,
+            anchor = target.pos,
+            onHarvestDone = { changePhase(assignment, CreepAssignmentPhase.WORK) }
+        )
 
-    private suspend fun <T : RoomObject> executeEnergyWork(
+        CreepAssignmentPhase.WORK -> executeEnergyWork(
+            assignment = assignment,
+            target = target,
+            action = { action(target) },
+            onWorkDone = { changePhase(assignment, CreepAssignmentPhase.HARVEST) }
+        )
+    }
+
+    private suspend fun <T : HasPosition> executeEnergyWork(
         assignment: CreepAssignment,
         target: T,
         action: suspend Creep.() -> ScreepsReturnCode,
@@ -160,36 +129,19 @@ class CreepIntentService<T>(
         }
 
         val source = resolveHarvestSource(roomName, anchor)
-        if (source == null) {
+        if (source == null || source.energy == 0) {
             if (self.energyStore.isNotEmpty) {
                 onHarvestDone()
             }
             return
         }
 
-        if (source.energy <= 0 && self.energyStore.isNotEmpty) {
-            onHarvestDone()
-            return
-        }
-
         when (val code = self.harvest(source)) {
-            OK -> {
-                if (self.energyStore.isFull || (source.energy <= 0 && self.energyStore.isNotEmpty)) {
-                    onHarvestDone()
-                }
-            }
-
+            OK -> Unit
             ERR_NOT_IN_RANGE -> self.moveTo(source)
-
-            ERR_NOT_ENOUGH_RESOURCES -> {
-                if (self.energyStore.isNotEmpty) {
-                    onHarvestDone()
-                }
-            }
-
+            ERR_NOT_ENOUGH_RESOURCES -> Unit
             ERR_INVALID_TARGET -> clearAssignmentState()
-
-            else -> log.error("Controller upkeep harvest failed with code $code")
+            else -> log.error("Harvest failed with code $code")
         }
     }
 
@@ -266,17 +218,17 @@ class CreepIntentService<T>(
 
     private suspend fun releaseLockedResourceIfHeld() {
         val resourceId = self.memory.lockedObjectId ?: return
-        val roomName = self.memory.assignment?.roomName
+        val roomActorId = self.memory.assignment?.roomName
             ?: selfOrNull?.room?.name
             ?: return
 
-        val released: Boolean? = requestFrom(
-            actorId = roomName,
-            payload = ReleaseResourceById(ownerId = id, resourceId = resourceId)
-        )
+        val released: Boolean? = ReleaseResourceById(
+            ownerId = id,
+            resourceId = resourceId
+        ).requestFrom(roomActorId)
 
         if (released != true) {
-            log.warn("Failed to release lock $resourceId in room $roomName for creep $id: result=$released")
+            log.warn("Failed to release lock $resourceId in room $roomActorId for creep $id: result=$released")
         }
 
         setLockedResourceId(null)
