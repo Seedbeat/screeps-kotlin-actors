@@ -1,4 +1,4 @@
-package actors.memory.types
+package actors.memory.types.creep.assignment.values
 
 import actors.CreepAssignment
 import actors.assignments.CreepAssignmentPhase
@@ -7,18 +7,18 @@ import actors.memory.delegates.memoryNodeEnum
 import actors.memory.delegates.memoryNodeValue
 import screeps.api.MemoryMarker
 
-class ControllerUpkeepAssignmentMemory(
+class ControllerUpkeep(
     parent: MemoryMarker,
     selfKey: String
 ) : ObjectMemoryNode<CreepAssignment.ControllerUpkeep>(parent, selfKey) {
     var roomName: String? by memoryNodeValue()
     var controllerId: String? by memoryNodeValue()
-    var phase: CreepAssignmentPhase by memoryNodeEnum { CreepAssignmentPhase.HARVEST }
+    var phase: CreepAssignmentPhase? by memoryNodeEnum()
 
     override fun read(): CreepAssignment.ControllerUpkeep? = CreepAssignment.ControllerUpkeep(
         roomName = roomName ?: return null,
         controllerId = controllerId ?: return null,
-        phase = phase
+        phase = phase ?: return null
     )
 
     override fun write(value: CreepAssignment.ControllerUpkeep) {

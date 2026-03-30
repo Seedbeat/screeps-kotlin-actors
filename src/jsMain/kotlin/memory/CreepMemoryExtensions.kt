@@ -4,7 +4,7 @@ import actors.CreepAssignment
 import actors.memory.delegates.memoryEnum
 import actors.memory.delegates.memoryNodeObject
 import actors.memory.delegates.memoryValue
-import actors.memory.types.CreepAssignmentMemory
+import actors.memory.types.creep.assignment.CreepAssignmentMemory
 import creep.enums.CreepType
 import creep.enums.Role
 import creep.enums.State

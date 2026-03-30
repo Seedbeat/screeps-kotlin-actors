@@ -63,4 +63,6 @@ inline fun <reified T : Enum<T>> memoryNodeEnum(
     noinline default: () -> T
 ): MemoryNodeValueDelegate<T> = MemoryNodeValueDelegate(default = default(), codec = enumCodec())
 
+inline fun <reified T : Enum<T>> memoryNodeEnum(): MemoryNodeValueDelegate<T?> =
+    MemoryNodeValueDelegate(default = null, codec = enumCodec<T>().asNullable())
 

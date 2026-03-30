@@ -2,19 +2,19 @@ package actors
 
 import actors.assignments.CreepAssignmentPhase
 
-sealed class CreepAssignment {
-    abstract val roomName: String
+sealed interface CreepAssignment {
+    val roomName: String
 
-    sealed class PhaseAssignment : CreepAssignment() {
-        abstract val phase: CreepAssignmentPhase
-        abstract fun withPhase(phase: CreepAssignmentPhase): PhaseAssignment
+    sealed interface PhaseAssignment : CreepAssignment {
+        val phase: CreepAssignmentPhase
+        fun withPhase(phase: CreepAssignmentPhase): PhaseAssignment
     }
 
     data class ControllerUpkeep(
         override val roomName: String,
         val controllerId: String,
         override val phase: CreepAssignmentPhase = CreepAssignmentPhase.HARVEST
-    ) : PhaseAssignment() {
+    ) : PhaseAssignment {
         override fun withPhase(phase: CreepAssignmentPhase) = copy(phase = phase)
     }
 
@@ -22,15 +22,22 @@ sealed class CreepAssignment {
         override val roomName: String,
         val constructionSiteId: String,
         override val phase: CreepAssignmentPhase = CreepAssignmentPhase.HARVEST
-    ) : PhaseAssignment() {
+    ) : PhaseAssignment {
         override fun withPhase(phase: CreepAssignmentPhase) = copy(phase = phase)
     }
 
     data class EnergyTransfer(
         override val roomName: String,
         val targetId: String,
+        val goal: Goal,
         override val phase: CreepAssignmentPhase = CreepAssignmentPhase.HARVEST
-    ) : PhaseAssignment() {
+    ) : PhaseAssignment {
         override fun withPhase(phase: CreepAssignmentPhase) = copy(phase = phase)
+
+        sealed interface Goal {
+            data object UntilFull : Goal
+            data class Amount(val amount: Int) : Goal
+            data class Percent(val percentage: Int) : Goal
+        }
     }
 }
