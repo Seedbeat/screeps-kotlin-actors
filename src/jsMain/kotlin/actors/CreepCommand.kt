@@ -3,8 +3,6 @@ package actors
 import actor.message.Command
 
 sealed class CreepCommand : Command {
-    data object Noop : CreepCommand()
-
     data class Assign(
         val assignment: CreepAssignment
     ) : CreepCommand()

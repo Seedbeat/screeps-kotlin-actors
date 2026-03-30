@@ -4,6 +4,8 @@ import actors.CreepCommand.*
 import actors.base.ActorBinding
 import actors.base.GameCreepBinding
 import actors.base.Lifecycle
+import actors.base.Lifecycle.Bootstrap
+import actors.base.Lifecycle.Tick
 import memory.assignment
 import memory.lockedObjectId
 import screeps.api.Creep
@@ -22,20 +24,17 @@ class CreepActor(
     private val intentService = CreepIntentService(api = this)
 
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
-        is Lifecycle.Bootstrap -> Unit
-        is Lifecycle.Tick -> intentService.executeAssignment()
+        is Bootstrap -> Unit
+        is Tick -> intentService.executeAssignment()
     }
 
     override suspend fun processCommand(msg: CreepCommand) = when (msg) {
-        Noop -> Unit
         is Assign -> intentService.assign(msg.assignment)
         is SetLockedResourceId -> intentService.setLockedResourceId(msg.resourceId)
-        ClearAssignment -> intentService.clearAssignmentState()
+        is ClearAssignment -> intentService.clearAssignmentState()
     }
 
-    override suspend fun processRequest(msg: CreepRequest<*>): CreepResponse<*> = when (msg) {
-        CreepRequest.Status -> CreepResponse.Status(result = intentService.status())
-    }
+    override suspend fun processRequest(msg: CreepRequest<*>): CreepResponse<*> = TODO()
 
     override fun onDestroy() {
         val creepMemory = selfOrNull?.memory ?: Memory.creeps[self.name] ?: return
