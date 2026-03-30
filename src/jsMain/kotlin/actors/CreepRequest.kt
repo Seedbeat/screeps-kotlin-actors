@@ -2,4 +2,4 @@ package actors
 
 import actor.message.Request
 
-sealed class CreepRequest<T> : Request<T>
+sealed interface CreepRequest<T> : Request<T>

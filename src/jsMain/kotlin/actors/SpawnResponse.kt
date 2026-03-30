@@ -2,4 +2,4 @@ package actors
 
 import actor.message.Response
 
-sealed class SpawnResponse<T> : Response<T>
+sealed interface SpawnResponse<T> : Response<T>

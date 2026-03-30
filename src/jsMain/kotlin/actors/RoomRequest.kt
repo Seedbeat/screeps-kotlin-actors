@@ -3,20 +3,20 @@ package actors
 import actor.message.Request
 import screeps.api.RoomPosition
 
-sealed class RoomRequest<T> : Request<T> {
+sealed interface RoomRequest<T> : Request<T> {
     data class TryAcquireResourceById(
         val ownerId: String,
         val resourceId: String
-    ) : RoomRequest<Boolean?>()
+    ) : RoomRequest<Boolean?>
 
     data class TryAcquireResourceByType(
         val ownerId: String,
         val near: RoomPosition,
         val type: RoomResourceType
-    ) : RoomRequest<String?>()
+    ) : RoomRequest<String?>
 
     data class ReleaseResourceById(
         val ownerId: String,
         val resourceId: String
-    ) : RoomRequest<Boolean?>()
+    ) : RoomRequest<Boolean?>
 }
