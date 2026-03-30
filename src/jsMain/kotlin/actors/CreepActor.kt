@@ -1,9 +1,6 @@
 package actors
 
 import actors.CreepCommand.*
-import actors.CreepRequest.StatusRequest
-import actors.CreepResponse.StatusResponse
-import actors.CreepResponse.UnassignResponse
 import actors.base.ActorBinding
 import actors.base.GameCreepBinding
 import actors.base.Lifecycle
@@ -33,15 +30,11 @@ class CreepActor(
         Noop -> Unit
         is Assign -> intentService.assign(msg.assignment)
         is SetLockedResourceId -> intentService.setLockedResourceId(msg.resourceId)
-        ClearAssignment -> {
-            intentService.clearAssignmentState()
-            Unit
-        }
+        ClearAssignment -> intentService.clearAssignmentState()
     }
 
     override suspend fun processRequest(msg: CreepRequest<*>): CreepResponse<*> = when (msg) {
-        StatusRequest -> StatusResponse(result = intentService.status())
-        CreepRequest.Unassign -> UnassignResponse(result = intentService.clearAssignmentState())
+        CreepRequest.Status -> CreepResponse.Status(result = intentService.status())
     }
 
     override fun onDestroy() {
