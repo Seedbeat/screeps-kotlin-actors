@@ -17,9 +17,9 @@ class RoomActor(
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
 
     companion object {
-        private const val STAGE_SYNC_INTERVAL = 19
-        private const val SEMAPHORE_SYNC_INTERVAL = 25
-        private const val PLANNING_CACHE_SYNC_INTERVAL = 10
+        private const val STAGE_SYNC_INTERVAL = 2
+        private const val SEMAPHORE_SYNC_INTERVAL = 3
+        private const val PLANNING_CACHE_SYNC_INTERVAL = 4
     }
 
     override fun maxIntentsPerTick(): Int = 2
