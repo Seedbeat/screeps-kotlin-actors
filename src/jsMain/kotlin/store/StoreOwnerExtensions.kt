@@ -3,7 +3,7 @@ package store
 import screeps.api.RESOURCE_ENERGY
 import screeps.api.ResourceConstant
 import screeps.api.StoreOwner
-import utils.collections.CachedInstance
+import utils.cache.CachedInstance
 
 private val typedStoreCache = CachedInstance<TypedStore>()
 
