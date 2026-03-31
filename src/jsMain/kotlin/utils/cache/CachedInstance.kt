@@ -1,9 +1,9 @@
-package utils.collections
+package utils.cache
 
-import utils.lazyPerTick
+import utils.lazyPerNthTick
 
-class CachedInstance<V> {
-    private val entries by lazyPerTick { mutableMapOf<Any, V>() }
+class CachedInstance<V>(lifetime: Int? = 1) {
+    private val entries by lazyPerNthTick(lifetime) { mutableMapOf<Any, V>() }
 
     fun getOrPut(key: Any, create: () -> V): V =
         entries.getOrPut(SingleKey(key), create)
