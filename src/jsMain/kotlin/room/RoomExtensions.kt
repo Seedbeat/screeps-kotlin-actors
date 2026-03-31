@@ -2,6 +2,7 @@ package room
 
 import memory.resourceSemaphore
 import screeps.api.Room
+import utils.lazyOnce
 import utils.lazyPerTick
 import utils.log.ILogger
 import utils.log.LogLevel
@@ -24,3 +25,7 @@ fun Room.releaseResource(ownerId: String, resourceId: String) {
         null -> Unit
     }
 }
+
+val Room.constructionSites: RoomConstructionSites by lazyOnce { RoomConstructionSites(this) }
+val Room.structures: RoomStructuresInfo by lazyOnce { RoomStructuresInfo(this) }
+val Room.creeps: RoomCreeps by lazyOnce { RoomCreeps(this) }
