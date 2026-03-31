@@ -2,12 +2,14 @@ package actors
 
 import actors.heuristics.ConstructionSiteHeuristics
 import memory.stage
-import screeps.api.*
+import room.constructionSites
+import room.structures
+import screeps.api.Game
+import screeps.api.Room
 
 object RoomPlanningAnalyzer {
     fun analyze(room: Room): RoomPlanningCache {
-        val myStructures = room.find(FIND_MY_STRUCTURES)
-        val constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES)
+        val constructionSites = room.constructionSites.my
         val remainingConstructionWork = constructionSites.sumOf { site -> site.progressTotal - site.progress }
 
         return RoomPlanningCache(
@@ -15,11 +17,11 @@ object RoomPlanningAnalyzer {
             stage = room.memory.stage,
             controllerLevel = room.controller?.level ?: 0,
             energyCapacityAvailable = room.energyCapacityAvailable,
-            spawnCount = myStructures.count { it.structureType == STRUCTURE_SPAWN },
-            extensionCount = myStructures.count { it.structureType == STRUCTURE_EXTENSION },
-            towerCount = myStructures.count { it.structureType == STRUCTURE_TOWER },
+            spawnCount = room.structures.my.spawns.size,
+            extensionCount = room.structures.my.extensions.size,
+            towerCount = room.structures.my.towers.size,
             hasStorage = room.storage != null,
-            hasTerminal = myStructures.any { it.structureType == STRUCTURE_TERMINAL },
+            hasTerminal = room.terminal != null,
             constructionSiteCount = constructionSites.size,
             remainingConstructionWork = remainingConstructionWork,
             weightedRemainingConstructionWork = ConstructionSiteHeuristics.weightedRemainingWork(constructionSites)
