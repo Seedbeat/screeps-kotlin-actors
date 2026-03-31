@@ -5,7 +5,13 @@ import actors.base.ActorBinding
 import actors.base.IntentResultType
 import creep.capabilities
 import memory.planningCache
-import screeps.api.*
+import room.constructionSites
+import room.structures
+import screeps.api.BUILD_POWER
+import screeps.api.Creep
+import screeps.api.Room
+import screeps.api.structures.Structure
+import store.energyStore
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -55,7 +61,7 @@ class RoomPlanningService<T>(
     }
 
     suspend fun ensureConstruction(): IntentResultType {
-        val constructionSites = self.find(FIND_MY_CONSTRUCTION_SITES)
+        val constructionSites = self.constructionSites.my
         if (constructionSites.isEmpty()) {
             return IntentResultType.DROPPED
         }
@@ -122,6 +128,44 @@ class RoomPlanningService<T>(
         return IntentResultType.COMPLETED
     }
 
+    suspend fun ensureEnergyTransfer(): IntentResultType {
+        val target = findEnergyTransferTarget()
+            ?: return IntentResultType.DROPPED
+
+        val alreadyAssigned = systemRequest(
+            payload = SystemRequest.Query.creepsByAssignment<CreepAssignment.EnergyTransfer>(limit = 1)
+            { _, assignment -> assignment.roomName == self.name && assignment.targetId == target.id }
+        ).isNotEmpty()
+
+        if (alreadyAssigned) {
+            return IntentResultType.COMPLETED
+        }
+
+        if (assignIfAvailable(
+                actorId = availableUnassignedCreepActorId { creep, assignment ->
+                    creep.capabilities.canDoEnergyTransfer && assignment == null
+                },
+                assignment = CreepAssignment.EnergyTransfer(
+                    roomName = self.name,
+                    targetId = target.id,
+                    goal = CreepAssignment.EnergyTransfer.Goal.UntilFull
+                )
+            )
+        ) {
+            return IntentResultType.COMPLETED
+        }
+
+        val spawnActorId = availableSpawnActorId()
+            ?: return IntentResultType.RETAINED
+
+        SpawnCommand.TrySpawnEnergyTransferWorker(
+            roomName = self.name,
+            targetId = target.id
+        ).sendTo(spawnActorId)
+
+        return IntentResultType.COMPLETED
+    }
+
     private suspend fun availableUnassignedCreepActorId(
         predicate: (Creep, CreepAssignment?) -> Boolean
     ): String? = systemRequest(
@@ -134,10 +178,13 @@ class RoomPlanningService<T>(
         return true
     }
 
-    private fun availableSpawnActorId(): String? = self.find(
-        findConstant = FIND_MY_SPAWNS,
-        opts = options {
-            filter = { spawn -> spawn.spawning == null }
+    private fun availableSpawnActorId(): String? =
+        self.structures.my.spawns.firstOrNull { it.spawning == null }?.id
+
+    private fun findEnergyTransferTarget(): Structure? =
+        self.structures.my.run {
+            extensions.firstOrNull { it.energyStore.isNotFull }
+                ?: towers.firstOrNull { it.energyStore.isNotFull }
+                ?: spawns.firstOrNull { it.energyStore.isNotFull }
         }
-    ).firstOrNull()?.id
 }

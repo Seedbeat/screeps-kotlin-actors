@@ -73,6 +73,9 @@ class RoomActor(
         is RoomIntent.EnsureConstruction -> {
             enqueue(msg)
         }
+        is RoomIntent.EnsureEnergyTransfer -> {
+            enqueue(msg)
+        }
     }
 
     override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {
@@ -104,11 +107,19 @@ class RoomActor(
                 interruptible = true
             )
         )
+        enqueue(
+            intent = RoomIntent.EnsureEnergyTransfer(
+                priority = IntentPriority.NORMAL,
+                createdTick = time,
+                interruptible = true
+            )
+        )
     }
 
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
         is RoomIntent.EnsureControllerSurvival -> planningService.ensureControllerSurvival()
         is RoomIntent.EnsureConstruction -> planningService.ensureConstruction()
+        is RoomIntent.EnsureEnergyTransfer -> planningService.ensureEnergyTransfer()
     }
 
     private fun scanRoom() {

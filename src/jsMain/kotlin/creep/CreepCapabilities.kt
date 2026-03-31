@@ -13,6 +13,9 @@ data class CreepCapabilities(
     val canDoConstruction: Boolean
         get() = work > 0 && carry > 0 && move > 0
 
+    val canDoEnergyTransfer: Boolean
+        get() = work > 0 && carry > 0 && move > 0
+
     companion object {
         fun from(creep: Creep): CreepCapabilities {
             val bodyParts = creep.body

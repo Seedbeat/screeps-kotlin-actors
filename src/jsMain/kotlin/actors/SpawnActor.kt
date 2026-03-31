@@ -18,6 +18,7 @@ class SpawnActor(
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {
         is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)
         is SpawnCommand.TrySpawnConstructionWorker -> trySpawnConstructionWorker(msg)
+        is SpawnCommand.TrySpawnEnergyTransferWorker -> trySpawnEnergyTransferWorker(msg)
     }
 
     override suspend fun processRequest(msg: SpawnRequest<*>): SpawnResponse<*> = TODO()
@@ -37,6 +38,17 @@ class SpawnActor(
             assignment = CreepAssignment.Construction(
                 roomName = msg.roomName,
                 constructionSiteId = msg.constructionSiteId
+            ),
+            msg = msg
+        )
+    }
+
+    private fun trySpawnEnergyTransferWorker(msg: SpawnCommand.TrySpawnEnergyTransferWorker) {
+        trySpawnAssignment(
+            assignment = CreepAssignment.EnergyTransfer(
+                roomName = msg.roomName,
+                targetId = msg.targetId,
+                goal = CreepAssignment.EnergyTransfer.Goal.UntilFull
             ),
             msg = msg
         )

@@ -12,4 +12,9 @@ sealed interface SpawnCommand : Command {
         val roomName: String,
         val constructionSiteId: String
     ) : SpawnCommand
+
+    data class TrySpawnEnergyTransferWorker(
+        val roomName: String,
+        val targetId: String
+    ) : SpawnCommand
 }
