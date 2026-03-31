@@ -53,5 +53,5 @@ fun <P, T> lazyOnce(compute: P.() -> T): ReadOnlyProperty<P, T> =
 fun <P, T> lazyPerTick(compute: P.() -> T): ReadOnlyProperty<P, T> =
     LazyDelegate(tickNth = 1, compute = compute)
 
-fun <P, T> lazyPerNthTick(n: Int, compute: P.() -> T): ReadOnlyProperty<P, T> =
+fun <P, T> lazyPerNthTick(n: Int?, compute: P.() -> T): ReadOnlyProperty<P, T> =
     LazyDelegate(tickNth = n, compute = compute)
