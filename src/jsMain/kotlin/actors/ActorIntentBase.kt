@@ -4,7 +4,9 @@ import actor.message.Command
 import actor.message.Request
 import actor.message.Response
 import actors.base.Intent
+import actors.base.IntentEntry
 import actors.base.IntentResultType
+import screeps.api.Game
 
 abstract class ActorIntentBase<
         ObjectType,
@@ -15,34 +17,72 @@ abstract class ActorIntentBase<
     id: String
 ) : ActorBase<ObjectType, CommandType, RequestType, ResponseType>(id) {
 
-    protected abstract suspend fun planIntents(time: Int)
+    private val intents = linkedMapOf<String, IntentEntry<IntentType>>()
+    open val maxIntentsPerTick: Int = 5
+
     protected abstract suspend fun executeIntent(intent: IntentType, time: Int): IntentResultType
-    protected open fun agingStepTicks(): Int = 10
-    protected open fun maxIntentsPerTick(): Int = 1
 
-    protected abstract fun enqueue(intent: IntentType)
+    protected fun addIntent(intent: IntentType) {
+        val entry = intents[intent.intentId]
 
-    protected abstract fun select(time: Int, excludedIntentIds: Set<String> = emptySet()): IntentType?
-
-    protected abstract fun remove(intent: IntentType)
+        if (entry != null) {
+            intents[intent.intentId] = entry.copy(intent = intent)
+        } else {
+            intents[intent.intentId] = IntentEntry(intent = intent, createdTick = Game.time)
+        }
+    }
 
     protected suspend fun processIntents(time: Int) {
-        planIntents(time)
+        var processed = 0
+        while (processed < maxIntentsPerTick) {
+            val entry = selectNextIntent(time) ?: break
+            entry.lastAttemptedTick = time
 
-        val attemptedIntentIds = mutableSetOf<String>()
-        repeat(maxIntentsPerTick().coerceAtLeast(0)) {
-            val intent = select(time, attemptedIntentIds) ?: return
-            attemptedIntentIds += intent.intentId
-
-            when (executeIntent(intent, time)) {
+            when (executeIntent(entry.intent, time)) {
                 IntentResultType.COMPLETED,
                 IntentResultType.DROPPED -> {
-                    log.info("Processed intent $intent to $time")
-                    remove(intent)
+                    if (!entry.intent.repeatable) {
+                        intents.remove(entry.intent.intentId)
+                        log.info("Processed intent ${entry.intent}")
+                    }
                 }
 
                 IntentResultType.RETAINED -> Unit
             }
+
+            processed++
         }
+    }
+
+    private fun selectNextIntent(time: Int): IntentEntry<IntentType>? {
+        var best: IntentEntry<IntentType>? = null
+        var bestNeverAttempted = false
+        var bestScore = Int.MIN_VALUE
+        var bestLastAttemptedTick = Int.MIN_VALUE
+
+        for (entry in intents.values) {
+            val lastAttemptedTick = entry.lastAttemptedTick
+            if (lastAttemptedTick == time) continue
+
+            val neverAttempted = lastAttemptedTick == null
+            val score = entry.selectionScore(time)
+            val normalizedLastAttemptedTick = lastAttemptedTick ?: Int.MIN_VALUE
+
+            val better = when {
+                best == null -> true
+                neverAttempted != bestNeverAttempted -> neverAttempted
+                score != bestScore -> score > bestScore
+                else -> normalizedLastAttemptedTick < bestLastAttemptedTick
+            }
+
+            if (!better) continue
+
+            best = entry
+            bestNeverAttempted = neverAttempted
+            bestScore = score
+            bestLastAttemptedTick = normalizedLastAttemptedTick
+        }
+
+        return best
     }
 }

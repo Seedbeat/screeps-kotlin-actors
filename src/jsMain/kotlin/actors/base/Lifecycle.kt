@@ -3,6 +3,8 @@ package actors.base
 import actor.message.Command
 
 sealed class Lifecycle : Command {
-    data class Tick(val time: Int) : Lifecycle()
-    data object Bootstrap : Lifecycle()
+    abstract val time: Int
+
+    data class Tick(override val time: Int) : Lifecycle()
+    data class Bootstrap(override val time: Int) : Lifecycle()
 }

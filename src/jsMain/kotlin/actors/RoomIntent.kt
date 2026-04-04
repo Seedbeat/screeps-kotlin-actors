@@ -3,28 +3,32 @@ package actors
 import actors.base.Intent
 import actors.base.IntentPriority
 
-sealed interface RoomIntent : RoomCommand, Intent {
-    data class EnsureControllerSurvival(
-        override val priority: IntentPriority,
-        override val createdTick: Int,
-        override val interruptible: Boolean
-    ) : RoomIntent {
-        override val intentId: String = this::class.simpleName!!
-    }
+sealed class RoomIntent(
+    override val priority: IntentPriority,
+    override val repeatable: Boolean
+) : RoomCommand, Intent {
+    override val intentId: String = this::class.simpleName!!
 
-    data class EnsureConstruction(
-        override val priority: IntentPriority,
-        override val createdTick: Int,
-        override val interruptible: Boolean
-    ) : RoomIntent {
-        override val intentId: String = this::class.simpleName!!
-    }
+    data object EnsureControllerSurvival : RoomIntent(
+        priority = IntentPriority.CRITICAL,
+        repeatable = true
+    )
 
-    data class EnsureEnergyTransfer(
-        override val priority: IntentPriority,
-        override val createdTick: Int,
-        override val interruptible: Boolean
-    ) : RoomIntent {
-        override val intentId: String = this::class.simpleName!!
+    data object EnsureConstruction : RoomIntent(
+        priority = IntentPriority.NORMAL,
+        repeatable = true
+    )
+
+    data object EnsureEnergyTransfer : RoomIntent(
+        priority = IntentPriority.HIGH,
+        repeatable = true
+    )
+
+    companion object {
+        val recurring = listOf(
+            EnsureControllerSurvival,
+            EnsureConstruction,
+            EnsureEnergyTransfer
+        )
     }
 }

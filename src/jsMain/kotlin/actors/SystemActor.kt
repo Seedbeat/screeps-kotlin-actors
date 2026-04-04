@@ -22,7 +22,7 @@ class SystemActor(id: String) :
 
     override suspend fun processLifecycle(msg: Lifecycle) = when (msg) {
         is Lifecycle.Tick -> onTick(msg)
-        is Lifecycle.Bootstrap -> onBootstrap()
+        is Lifecycle.Bootstrap -> onBootstrap(msg)
     }
 
     private suspend fun onTick(msg: Lifecycle.Tick) {
@@ -33,12 +33,12 @@ class SystemActor(id: String) :
         broadcast(this, msg)
     }
 
-    private suspend fun onBootstrap() {
+    private suspend fun onBootstrap(msg: Lifecycle.Bootstrap) {
         log.info("System bootstrap")
 
         syncChildren()
         cleanupStaleCreepMemory()
-        broadcast(this, Lifecycle.Bootstrap)
+        broadcast(this, msg)
     }
 
     override suspend fun processCommand(msg: SystemCommand) = when (msg) {

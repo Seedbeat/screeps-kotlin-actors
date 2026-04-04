@@ -10,7 +10,7 @@ object Actors {
 
     fun init() {
         ActorSystem.spawn(SYSTEM, ::SystemActor)
-        systemMessage(Lifecycle.Bootstrap)
+        systemMessage(Lifecycle.Bootstrap(Game.time))
     }
 
     fun tick() {

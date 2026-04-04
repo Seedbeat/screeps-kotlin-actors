@@ -1,8 +1,8 @@
 package actors.base
 
 enum class IntentPriority(val baseWeight: Int) {
-    CRITICAL(300),
-    HIGH(200),
-    NORMAL(100),
+    CRITICAL(30),
+    HIGH(20),
+    NORMAL(10),
     LOW(0)
 }

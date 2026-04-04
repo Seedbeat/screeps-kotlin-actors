@@ -11,7 +11,7 @@ import utils.log.Logging
 
 class RoomActor(
     id: String
-) : ActorIntentQueueBase<Room, RoomCommand, RoomIntent, RoomRequest<*>, RoomResponse<*>>(id),
+) : ActorIntentBase<Room, RoomCommand, RoomIntent, RoomRequest<*>, RoomResponse<*>>(id),
     ActorBinding<Room> by GameRoomBinding(id),
     ChildrenMultiManager,
     ILogging by Logging<RoomActor>(id, LogLevel.INFO) {
@@ -21,8 +21,6 @@ class RoomActor(
         private const val SEMAPHORE_SYNC_INTERVAL = 3
         private const val PLANNING_CACHE_SYNC_INTERVAL = 4
     }
-
-    override fun maxIntentsPerTick(): Int = 2
 
     override val managers = mapOf(
         SpawnActor::class.simpleName!! to RoomSpawnsManager(self)
@@ -42,6 +40,10 @@ class RoomActor(
             processCommand(RoomCommand.SyncStage)
             processCommand(RoomCommand.SyncPlanningCache)
             processCommand(RoomCommand.SyncSemaphores)
+
+            RoomIntent.recurring.forEach { intent ->
+                processCommand(intent)
+            }
 
             // Should be last
             broadcast(this, msg)
@@ -67,15 +69,7 @@ class RoomActor(
         is RoomCommand.SyncPlanningCache -> syncPlanningCache()
         is RoomCommand.SyncSemaphores -> semaphoreService.syncSemaphores()
 
-        is RoomIntent.EnsureControllerSurvival -> {
-            enqueue(msg)
-        }
-        is RoomIntent.EnsureConstruction -> {
-            enqueue(msg)
-        }
-        is RoomIntent.EnsureEnergyTransfer -> {
-            enqueue(msg)
-        }
+        is RoomIntent -> addIntent(msg)
     }
 
     override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {
@@ -89,30 +83,6 @@ class RoomActor(
 
         is RoomRequest.ReleaseResourceById -> ReleaseResourceResponse(
             result = semaphoreService.releaseResource(msg.ownerId, msg.resourceId)
-        )
-    }
-
-    override suspend fun planIntents(time: Int) {
-        enqueue(
-            intent = RoomIntent.EnsureControllerSurvival(
-                priority = IntentPriority.NORMAL,
-                createdTick = time,
-                interruptible = true
-            )
-        )
-        enqueue(
-            intent = RoomIntent.EnsureConstruction(
-                priority = IntentPriority.NORMAL,
-                createdTick = time,
-                interruptible = true
-            )
-        )
-        enqueue(
-            intent = RoomIntent.EnsureEnergyTransfer(
-                priority = IntentPriority.NORMAL,
-                createdTick = time,
-                interruptible = true
-            )
         )
     }
 
