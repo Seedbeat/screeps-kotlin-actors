@@ -113,6 +113,7 @@ class CreepIntentService<T>(
             OK -> Unit
             ERR_NOT_IN_RANGE -> self.moveTo(target)
             ERR_NOT_ENOUGH_RESOURCES -> onWorkDone()
+            ERR_FULL,
             ERR_INVALID_TARGET -> clearAssignmentState()
             else -> log.error("${assignment::class.simpleName} failed with code $code")
         }
