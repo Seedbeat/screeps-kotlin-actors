@@ -3,9 +3,7 @@ package actors
 import screeps.api.ConstructionSite
 
 data class ConstructionPlanningAnalysis(
+    val activeSites: List<ConstructionSite>,
     val targetSite: ConstructionSite?,
-    val desiredThroughput: Int,
-    val builderCountCap: Int,
-    val targetSiteCapacity: Int,
-    val targetSiteAssigned: Int
+    val demand: TaskDemand
 )

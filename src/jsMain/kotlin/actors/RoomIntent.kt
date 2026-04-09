@@ -14,12 +14,7 @@ sealed class RoomIntent(
         repeatable = true
     )
 
-    data object EnsureConstruction : RoomIntent(
-        priority = IntentPriority.NORMAL,
-        repeatable = true
-    )
-
-    data object EnsureEnergyTransfer : RoomIntent(
+    data object PlanWorkforce : RoomIntent(
         priority = IntentPriority.HIGH,
         repeatable = true
     )
@@ -27,8 +22,7 @@ sealed class RoomIntent(
     companion object {
         val recurring = listOf(
             EnsureControllerSurvival,
-            EnsureConstruction,
-            EnsureEnergyTransfer
+            PlanWorkforce
         )
     }
 }

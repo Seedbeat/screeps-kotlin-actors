@@ -3,13 +3,11 @@ package actors
 import actors.heuristics.ConstructionSiteHeuristics
 import actors.heuristics.EnergyHeuristics
 import actors.heuristics.RoomHeuristics
-import creep.BodyRecipe
 import memory.stage
 import room.RoomStage
 import screeps.api.BUILD_POWER
 import screeps.api.ConstructionSite
 import screeps.api.Room
-import screeps.api.WORK
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -19,50 +17,63 @@ object ConstructionPlanningPolicy {
         room: Room,
         planningCache: RoomPlanningCache?,
         constructionSites: Array<ConstructionSite>,
-        assignedSiteCounts: Map<String, Int>
+        assignedSiteCounts: Map<String, Int>,
+        mode: RoomWorkMode,
+        plannedWorkerWorkUnits: Int
     ): ConstructionPlanningAnalysis {
+        val activeSites = selectActiveSites(room, constructionSites, assignedSiteCounts, mode)
+        val targetSite = selectTargetSite(room, activeSites, assignedSiteCounts)
 
-        val stage = stage(room, planningCache)
-        val maxBuildersCap = RoomHeuristics.maxBuildersCap(stage)
-
-        val targetSite = selectTargetSite(room, constructionSites, assignedSiteCounts)
-            ?: return ConstructionPlanningAnalysis(
+        if (activeSites.isEmpty() || targetSite == null) {
+            return ConstructionPlanningAnalysis(
+                activeSites = emptyList(),
                 targetSite = null,
-                desiredThroughput = 0,
-                builderCountCap = maxBuildersCap,
-                targetSiteCapacity = 0,
-                targetSiteAssigned = 0
+                demand = TaskDemand(
+                    priority = 0,
+                    minimumWorkUnits = 0,
+                    desiredWorkUnits = 0,
+                    maxWorkUnits = 0
+                )
             )
+        }
 
-        val targetSiteCapacity = ConstructionSiteHeuristics.siteBuildersCapacity(targetSite)
-        val targetSiteAssigned = assignedSiteCounts[targetSite.id] ?: 0
+        val maxWorkUnits = maxWorkUnits(activeSites, plannedWorkerWorkUnits)
+        val demand = TaskDemand(
+            priority = priority(targetSite),
+            minimumWorkUnits = minimumWorkUnits(targetSite, maxWorkUnits, plannedWorkerWorkUnits, mode),
+            desiredWorkUnits = desiredWorkUnits(room, planningCache, activeSites, targetSite)
+                .coerceAtMost(maxWorkUnits),
+            maxWorkUnits = maxWorkUnits
+        )
 
         return ConstructionPlanningAnalysis(
+            activeSites = activeSites,
             targetSite = targetSite,
-            desiredThroughput = desiredThroughput(room, planningCache, targetSite),
-            builderCountCap = maxBuildersCap,
-            targetSiteCapacity = targetSiteCapacity,
-            targetSiteAssigned = targetSiteAssigned
+            demand = demand
         )
     }
 
-    fun spawnableThroughput(room: Room, targetSite: ConstructionSite): Int =
-        constructionThroughput(room, targetSite, room.energyAvailable)
+    fun nextTargetSite(
+        room: Room,
+        activeSites: List<ConstructionSite>,
+        assignedSiteCounts: Map<String, Int>
+    ): ConstructionSite? = selectTargetSite(room, activeSites, assignedSiteCounts)
 
-    private fun desiredThroughput(
+    private fun desiredWorkUnits(
         room: Room,
         planningCache: RoomPlanningCache?,
+        activeSites: List<ConstructionSite>,
         primarySite: ConstructionSite
     ): Int {
-        val remainingWork = planningCache?.weightedRemainingConstructionWork ?: 0
+        val remainingWork = planningCache?.weightedRemainingConstructionWork
+            ?: ConstructionSiteHeuristics.weightedRemainingWork(activeSites.toTypedArray())
         if (remainingWork <= 0) {
             return 0
         }
 
         val targetTicks = constructionTargetTicks(room, planningCache, primarySite)
-        val requiredThroughput = ceil(remainingWork.toDouble() / targetTicks).toInt().coerceAtLeast(BUILD_POWER)
-        val maxThroughput = maxThroughputCap(room, planningCache, primarySite)
-        return requiredThroughput.coerceAtMost(maxThroughput)
+        val requiredProgressPerTick = ceil(remainingWork.toDouble() / targetTicks).toInt()
+        return ceil(requiredProgressPerTick.toDouble() / BUILD_POWER.toDouble()).toInt().coerceAtLeast(1)
     }
 
     private fun constructionTargetTicks(
@@ -79,42 +90,25 @@ object ConstructionPlanningPolicy {
 
         val primarySitePriority = ConstructionSiteHeuristics.sitePriority(primarySite)
         val priorityModifier = ConstructionSiteHeuristics.priorityModifier(primarySitePriority)
+        val modeModifier = when {
+            primarySitePriority <= 1 -> 0.75
+            else -> 1.0
+        }
 
-        return max(100, (baseTicks * energyModifier * priorityModifier).roundToInt())
+        return max(100, (baseTicks * energyModifier * priorityModifier * modeModifier).roundToInt())
     }
 
-    private fun maxThroughputCap(
-        room: Room,
-        planningCache: RoomPlanningCache?,
-        primarySite: ConstructionSite
-    ): Int {
-        val stage = stage(room, planningCache)
-        val maxBuilders = RoomHeuristics.maxBuildersCap(stage)
+    private fun maxWorkUnits(activeSites: List<ConstructionSite>, plannedWorkerWorkUnits: Int): Int =
+        activeSites.sumOf(ConstructionSiteHeuristics::siteBuildersCapacity) * plannedWorkerWorkUnits.coerceAtLeast(1)
 
-        val energyBudget = capacityAvailable(room, planningCache)
-        val perBuilderThroughput = max(BUILD_POWER, constructionThroughput(room, primarySite, energyBudget))
-
-        return maxBuilders * perBuilderThroughput
-    }
-
-    private fun constructionThroughput(room: Room, targetSite: ConstructionSite, energyBudget: Int): Int {
-        val sampleAssignment = CreepAssignment.Construction(
-            roomName = room.name,
-            constructionSiteId = targetSite.id
-        )
-        val body = BodyRecipe.selectBodySpecByAssignment(energyBudget, sampleAssignment)
-            ?: return 0
-
-        return body.body.count { part -> part == WORK } * BUILD_POWER
-    }
-
-    private fun selectTargetSite(
+    private fun selectActiveSites(
         room: Room,
         constructionSites: Array<ConstructionSite>,
-        assignedSiteCounts: Map<String, Int>
-    ): ConstructionSite? {
+        assignedSiteCounts: Map<String, Int>,
+        mode: RoomWorkMode
+    ): List<ConstructionSite> {
         if (constructionSites.isEmpty()) {
-            return null
+            return emptyList()
         }
 
         return constructionSites
@@ -127,12 +121,57 @@ object ConstructionPlanningPolicy {
                     .thenBy { room.controller?.pos?.getRangeTo(it.pos) ?: 0 }
                     .thenByDescending { it.progressTotal - it.progress }
             )
-            .firstOrNull()
+            .take(activeSiteWindowSize(mode))
+    }
+
+    private fun selectTargetSite(
+        room: Room,
+        activeSites: List<ConstructionSite>,
+        assignedSiteCounts: Map<String, Int>
+    ): ConstructionSite? {
+        if (activeSites.isEmpty()) {
+            return null
+        }
+
+        return activeSites.sortedWith(
+            compareBy<ConstructionSite> { assignedSiteCounts[it.id] ?: 0 }
+                .thenBy(ConstructionSiteHeuristics::sitePriority)
+                .thenBy { room.controller?.pos?.getRangeTo(it.pos) ?: 0 }
+                .thenByDescending { it.progressTotal - it.progress }
+        ).firstOrNull()
     }
 
     private fun stage(room: Room, planningCache: RoomPlanningCache?): RoomStage =
         planningCache?.stage ?: room.memory.stage
 
-    private fun capacityAvailable(room: Room, planningCache: RoomPlanningCache?): Int =
-        planningCache?.energyCapacityAvailable ?: room.energyCapacityAvailable
+    private fun activeSiteWindowSize(mode: RoomWorkMode): Int = when (mode) {
+        RoomWorkMode.Bootstrap -> 1
+        RoomWorkMode.Recovery -> 2
+        RoomWorkMode.Steady -> 3
+        RoomWorkMode.Surplus -> 4
+    }
+
+    private fun priority(targetSite: ConstructionSite): Int = when (ConstructionSiteHeuristics.sitePriority(targetSite)) {
+        0 -> 300
+        1 -> 260
+        2 -> 180
+        3 -> 120
+        4 -> 90
+        else -> 60
+    }
+
+    private fun minimumWorkUnits(
+        targetSite: ConstructionSite,
+        maxWorkUnits: Int,
+        plannedWorkerWorkUnits: Int,
+        mode: RoomWorkMode
+    ): Int = when {
+        ConstructionSiteHeuristics.sitePriority(targetSite) <= 1 ->
+            minOf(maxWorkUnits, plannedWorkerWorkUnits.coerceAtLeast(1))
+
+        ConstructionSiteHeuristics.sitePriority(targetSite) == 2 && mode == RoomWorkMode.Bootstrap ->
+            minOf(maxWorkUnits, plannedWorkerWorkUnits.coerceAtLeast(1))
+
+        else -> 0
+    }
 }

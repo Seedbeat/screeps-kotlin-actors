@@ -16,49 +16,19 @@ class SpawnActor(
     ILogging by Logging<SpawnActor>(id, LogLevel.INFO) {
 
     override suspend fun processCommand(msg: SpawnCommand) = when (msg) {
-        is SpawnCommand.TrySpawnControllerSurvivalWorker -> trySpawnControllerSurvivalWorker(msg)
-        is SpawnCommand.TrySpawnConstructionWorker -> trySpawnConstructionWorker(msg)
-        is SpawnCommand.TrySpawnEnergyTransferWorker -> trySpawnEnergyTransferWorker(msg)
+        is SpawnCommand.TrySpawnWorker -> trySpawnWorker(msg)
     }
 
     override suspend fun processRequest(msg: SpawnRequest<*>): SpawnResponse<*> = TODO()
 
-    private fun trySpawnControllerSurvivalWorker(msg: SpawnCommand.TrySpawnControllerSurvivalWorker) {
-        trySpawnAssignment(
-            assignment = CreepAssignment.ControllerUpkeep(
-                roomName = msg.roomName,
-                controllerId = msg.controllerId
-            ),
-            msg = msg
-        )
-    }
-
-    private fun trySpawnConstructionWorker(msg: SpawnCommand.TrySpawnConstructionWorker) {
-        trySpawnAssignment(
-            assignment = CreepAssignment.Construction(
-                roomName = msg.roomName,
-                constructionSiteId = msg.constructionSiteId
-            ),
-            msg = msg
-        )
-    }
-
-    private fun trySpawnEnergyTransferWorker(msg: SpawnCommand.TrySpawnEnergyTransferWorker) {
-        trySpawnAssignment(
-            assignment = CreepAssignment.EnergyTransfer(
-                roomName = msg.roomName,
-                targetId = msg.targetId,
-                goal = CreepAssignment.EnergyTransfer.Goal.UntilFull
-            ),
-            msg = msg
-        )
-    }
-
-    private fun trySpawnAssignment(assignment: CreepAssignment, msg: SpawnCommand) {
+    private fun trySpawnWorker(msg: SpawnCommand.TrySpawnWorker) {
         if (self.spawning != null)
             return
 
-        val code = self.spawn(assignment = assignment)
+        val code = self.spawn(
+            assignment = msg.assignment,
+            profile = msg.profile
+        )
         if (code == OK) {
             log.info("Spawn request accepted: $msg")
         } else {

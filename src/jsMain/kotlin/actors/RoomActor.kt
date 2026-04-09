@@ -88,8 +88,7 @@ class RoomActor(
 
     override suspend fun executeIntent(intent: RoomIntent, time: Int): IntentResultType = when (intent) {
         is RoomIntent.EnsureControllerSurvival -> planningService.ensureControllerSurvival()
-        is RoomIntent.EnsureConstruction -> planningService.ensureConstruction()
-        is RoomIntent.EnsureEnergyTransfer -> planningService.ensureEnergyTransfer()
+        is RoomIntent.PlanWorkforce -> planningService.planWorkforce()
     }
 
     private fun scanRoom() {

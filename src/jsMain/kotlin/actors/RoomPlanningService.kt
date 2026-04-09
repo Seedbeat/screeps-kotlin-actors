@@ -3,15 +3,11 @@ package actors
 import actors.base.ActorApi
 import actors.base.ActorBinding
 import actors.base.IntentResultType
-import creep.capabilities
+import memory.homeRoom
 import memory.planningCache
 import room.constructionSites
 import room.structures
-import screeps.api.BUILD_POWER
-import screeps.api.Creep
 import screeps.api.Room
-import screeps.api.structures.Structure
-import store.energyStore
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -27,19 +23,20 @@ class RoomPlanningService<T>(
         val controller = self.controller
             ?: return IntentResultType.RETAINED
 
-        val alreadyAssigned = systemRequest(
-            payload = SystemRequest.Query.creepsByAssignment<CreepAssignment.ControllerUpkeep>(limit = 1)
-            { _, assignment -> assignment.roomName == self.name && assignment.controllerId == controller.id }
-        ).isNotEmpty()
+        val roomWorkers = roomWorkers()
+        val alreadyAssigned = roomWorkers.any { status ->
+            val assignment = status.assignment
+            assignment is CreepAssignment.ControllerUpkeep &&
+                    assignment.roomName == self.name &&
+                    assignment.controllerId == controller.id
+        }
 
         if (alreadyAssigned) {
             return IntentResultType.COMPLETED
         }
 
         if (assignIfAvailable(
-                actorId = availableUnassignedCreepActorId { creep, assignment ->
-                    creep.capabilities.canDoControllerUpkeep && assignment == null
-                },
+                actorId = availableUnassignedWorkerActorId(roomWorkers),
                 assignment = CreepAssignment.ControllerUpkeep(
                     roomName = self.name,
                     controllerId = controller.id
@@ -49,128 +46,218 @@ class RoomPlanningService<T>(
             return IntentResultType.COMPLETED
         }
 
-        val spawnActorId = availableSpawnActorId()
-            ?: return IntentResultType.RETAINED
-
-        SpawnCommand.TrySpawnControllerSurvivalWorker(
-            roomName = self.name,
-            controllerId = controller.id
-        ).sendTo(spawnActorId)
-
-        return IntentResultType.COMPLETED
-    }
-
-    suspend fun ensureConstruction(): IntentResultType {
-        val constructionSites = self.constructionSites.my
-        if (constructionSites.isEmpty()) {
-            return IntentResultType.DROPPED
-        }
-
-        val assignedBuilders = systemRequest(
-            payload = SystemRequest.Query.creepsByAssignment<CreepAssignment.Construction> { _, assignment ->
-                assignment.roomName == self.name
-            }
-        )
-
-        val assignedSiteCounts = assignedBuilders
-            .mapNotNull { creep -> (creep.assignment as? CreepAssignment.Construction)?.constructionSiteId }
-            .groupingBy { siteId -> siteId }
-            .eachCount()
-
-        val assignedThroughput = assignedBuilders.sumOf { creep ->
-            creep.capabilities.work * BUILD_POWER
-        }
-
-        val analysis = ConstructionPlanningPolicy.analyze(
-            room = self,
-            planningCache = self.memory.planningCache,
-            constructionSites = constructionSites,
-            assignedSiteCounts = assignedSiteCounts
-        )
-
-        val targetSite = analysis.targetSite
-            ?: return IntentResultType.COMPLETED
-
-        val throughputSatisfied = assignedThroughput >= analysis.desiredThroughput
-        val siteSaturated = analysis.targetSiteAssigned >= analysis.targetSiteCapacity
-        val builderCapReached = assignedBuilders.size >= analysis.builderCountCap
-
-        if (throughputSatisfied || siteSaturated || builderCapReached) {
-            return IntentResultType.COMPLETED
-        }
-
-        if (assignIfAvailable(
-                actorId = availableUnassignedCreepActorId { creep, assignment ->
-                    creep.capabilities.canDoConstruction && assignment == null
-                },
-                assignment = CreepAssignment.Construction(
+        if (!spawnWorker(
+                assignment = CreepAssignment.ControllerUpkeep(
                     roomName = self.name,
-                    constructionSiteId = targetSite.id
-                )
+                    controllerId = controller.id
+                ),
+                profile = WorkerSpawnProfile.Bootstrap
             )
         ) {
-            return IntentResultType.COMPLETED
-        }
-
-        val spawnableThroughput = ConstructionPlanningPolicy.spawnableThroughput(self, targetSite)
-        if (spawnableThroughput <= 0) {
             return IntentResultType.RETAINED
         }
 
-        val availableSpawnActorId = availableSpawnActorId()
-            ?: return IntentResultType.RETAINED
-
-        SpawnCommand.TrySpawnConstructionWorker(
-            roomName = self.name,
-            constructionSiteId = targetSite.id
-        ).sendTo(availableSpawnActorId)
-
         return IntentResultType.COMPLETED
     }
 
-    suspend fun ensureEnergyTransfer(): IntentResultType {
-        val target = findEnergyTransferTarget()
-            ?: return IntentResultType.DROPPED
+    suspend fun planWorkforce(): IntentResultType {
+        val controller = self.controller
+            ?: return IntentResultType.RETAINED
 
-        val alreadyAssigned = systemRequest(
-            payload = SystemRequest.Query.creepsByAssignment<CreepAssignment.EnergyTransfer>(limit = 1)
-            { _, assignment -> assignment.roomName == self.name && assignment.targetId == target.id }
-        ).isNotEmpty()
+        val constructionSites = self.constructionSites.my
+        val roomWorkers = roomWorkers()
+        val assignedSiteCounts = roomWorkers
+            .mapNotNull { status -> (status.assignment as? CreepAssignment.Construction)?.constructionSiteId }
+            .groupingBy { siteId -> siteId }
+            .eachCount()
+        val assignedTransferTargetCounts = roomWorkers
+            .mapNotNull { status -> (status.assignment as? CreepAssignment.EnergyTransfer)?.targetId }
+            .groupingBy { targetId -> targetId }
+            .eachCount()
+        val plan = RoomWorkAllocator.plan(
+            room = self,
+            planningCache = self.memory.planningCache,
+            roomWorkers = roomWorkers,
+            constructionSites = constructionSites,
+            assignedConstructionSiteCounts = assignedSiteCounts,
+            assignedTransferTargetCounts = assignedTransferTargetCounts
+        )
+        val currentWorkByTask = currentWorkByTask(roomWorkers)
+        val currentConstructionWork = currentWorkByTask[RoomTaskKind.Construction] ?: 0
+        val currentTransferWork = currentWorkByTask[RoomTaskKind.EnergyTransfer] ?: 0
+        val currentControllerProgressWork = currentWorkByTask[RoomTaskKind.ControllerProgress] ?: 0
+        val currentTotalWork = currentAssignedWork(roomWorkers)
 
-        if (alreadyAssigned) {
+        val energyTransferTargetId = plan.energyTransfer.targetId
+        if (energyTransferTargetId != null && currentTransferWork < plan.energyTransferWorkUnits) {
+            val assignment = CreepAssignment.EnergyTransfer(
+                roomName = self.name,
+                targetId = energyTransferTargetId,
+                goal = CreepAssignment.EnergyTransfer.Goal.UntilFull
+            )
+
+            if (tryAssignWorkerForTask(
+                    roomWorkers = roomWorkers,
+                    assignment = assignment,
+                    desiredTask = RoomTaskKind.EnergyTransfer,
+                    currentWorkByTask = currentWorkByTask,
+                    targetWorkByTask = plan.workUnitsByTask
+                )
+            ) {
+                return IntentResultType.COMPLETED
+            }
+
+            if (currentTotalWork < plan.totalTargetWorkUnits && spawnWorker(assignment, plan.spawnProfile)) {
+                return IntentResultType.COMPLETED
+            }
+        }
+
+        val constructionTargetId = plan.construction.targetSiteId
+        if (constructionTargetId != null && currentConstructionWork < plan.constructionWorkUnits) {
+            val assignment = CreepAssignment.Construction(
+                roomName = self.name,
+                constructionSiteId = constructionTargetId
+            )
+
+            if (tryAssignWorkerForTask(
+                    roomWorkers = roomWorkers,
+                    assignment = assignment,
+                    desiredTask = RoomTaskKind.Construction,
+                    currentWorkByTask = currentWorkByTask,
+                    targetWorkByTask = plan.workUnitsByTask
+                )
+            ) {
+                return IntentResultType.COMPLETED
+            }
+
+            if (currentTotalWork < plan.totalTargetWorkUnits && spawnWorker(assignment, plan.spawnProfile)) {
+                return IntentResultType.COMPLETED
+            }
+        }
+
+        if (currentControllerProgressWork >= plan.controllerProgressWorkUnits) {
             return IntentResultType.COMPLETED
         }
 
-        if (assignIfAvailable(
-                actorId = availableUnassignedCreepActorId { creep, assignment ->
-                    creep.capabilities.canDoEnergyTransfer && assignment == null
-                },
-                assignment = CreepAssignment.EnergyTransfer(
-                    roomName = self.name,
-                    targetId = target.id,
-                    goal = CreepAssignment.EnergyTransfer.Goal.UntilFull
-                )
+        val controllerProgressAssignment = CreepAssignment.ControllerProgress(
+            roomName = self.name,
+            controllerId = controller.id
+        )
+
+        if (tryAssignWorkerForTask(
+                roomWorkers = roomWorkers,
+                assignment = controllerProgressAssignment,
+                desiredTask = RoomTaskKind.ControllerProgress,
+                currentWorkByTask = currentWorkByTask,
+                targetWorkByTask = plan.workUnitsByTask
             )
         ) {
             return IntentResultType.COMPLETED
         }
 
-        val spawnActorId = availableSpawnActorId()
-            ?: return IntentResultType.RETAINED
-
-        SpawnCommand.TrySpawnEnergyTransferWorker(
-            roomName = self.name,
-            targetId = target.id
-        ).sendTo(spawnActorId)
+        if (currentTotalWork < plan.totalTargetWorkUnits && spawnWorker(controllerProgressAssignment, plan.spawnProfile)) {
+            return IntentResultType.COMPLETED
+        }
 
         return IntentResultType.COMPLETED
     }
 
-    private suspend fun availableUnassignedCreepActorId(
-        predicate: (Creep, CreepAssignment?) -> Boolean
-    ): String? = systemRequest(
-        payload = SystemRequest.Query.Creeps(limit = 1, predicate = predicate)
-    ).singleOrNull()?.actorId
+    private suspend fun roomWorkers(): List<CreepStatus> = systemRequest(
+        payload = SystemRequest.Query.Creeps { creep, assignment ->
+            creep.memory.homeRoom == self.name || assignment?.roomName == self.name
+        }
+    )
+
+    private fun currentAssignedWork(roomWorkers: List<CreepStatus>): Int = roomWorkers.sumOf { status ->
+        when (status.assignment) {
+            null -> 0
+            is CreepAssignment.ControllerUpkeep,
+            is CreepAssignment.ControllerProgress,
+            is CreepAssignment.Construction,
+            is CreepAssignment.EnergyTransfer -> status.capabilities.work
+        }
+    }
+
+    private fun currentWorkByTask(roomWorkers: List<CreepStatus>): Map<RoomTaskKind, Int> {
+        val result = mutableMapOf(
+            RoomTaskKind.EnergyTransfer to 0,
+            RoomTaskKind.Construction to 0,
+            RoomTaskKind.ControllerProgress to 0
+        )
+
+        roomWorkers.forEach { status ->
+            val task = roomTask(status.assignment) ?: return@forEach
+            result[task] = (result[task] ?: 0) + status.capabilities.work
+        }
+
+        return result
+    }
+
+    private fun roomTask(assignment: CreepAssignment?): RoomTaskKind? = when (assignment) {
+        null,
+        is CreepAssignment.ControllerUpkeep -> null
+
+        is CreepAssignment.ControllerProgress -> RoomTaskKind.ControllerProgress
+        is CreepAssignment.Construction -> RoomTaskKind.Construction
+        is CreepAssignment.EnergyTransfer -> RoomTaskKind.EnergyTransfer
+    }
+
+    private fun availableUnassignedWorkerActorId(roomWorkers: List<CreepStatus>): String? =
+        roomWorkers
+            .asSequence()
+            .filter { status -> status.assignment == null && status.capabilities.canDoConstruction }
+            .sortedByDescending { status -> status.capabilities.work }
+            .map { status -> status.actorId }
+            .firstOrNull()
+
+    private fun tryAssignWorkerForTask(
+        roomWorkers: List<CreepStatus>,
+        assignment: CreepAssignment,
+        desiredTask: RoomTaskKind,
+        currentWorkByTask: Map<RoomTaskKind, Int>,
+        targetWorkByTask: Map<RoomTaskKind, Int>
+    ): Boolean {
+        if (assignIfAvailable(availableUnassignedWorkerActorId(roomWorkers), assignment)) {
+            return true
+        }
+
+        val reassignmentActorId = availableReassignmentActorId(
+            roomWorkers = roomWorkers,
+            desiredTask = desiredTask,
+            currentWorkByTask = currentWorkByTask,
+            targetWorkByTask = targetWorkByTask
+        )
+
+        return assignIfAvailable(reassignmentActorId, assignment)
+    }
+
+    private fun availableReassignmentActorId(
+        roomWorkers: List<CreepStatus>,
+        desiredTask: RoomTaskKind,
+        currentWorkByTask: Map<RoomTaskKind, Int>,
+        targetWorkByTask: Map<RoomTaskKind, Int>
+    ): String? {
+        val candidateTasks = listOf(
+            RoomTaskKind.ControllerProgress,
+            RoomTaskKind.Construction,
+            RoomTaskKind.EnergyTransfer
+        ).filter { task -> task != desiredTask }
+
+        return candidateTasks.firstNotNullOfOrNull { task ->
+            val current = currentWorkByTask[task] ?: 0
+            val target = targetWorkByTask[task] ?: 0
+            if (current <= target) {
+                return@firstNotNullOfOrNull null
+            }
+
+            roomWorkers
+                .asSequence()
+                .filter { status -> roomTask(status.assignment) == task }
+                .sortedBy { status -> status.capabilities.work }
+                .map { status -> status.actorId }
+                .firstOrNull()
+        }
+    }
 
     private fun assignIfAvailable(actorId: String?, assignment: CreepAssignment): Boolean {
         actorId ?: return false
@@ -178,13 +265,18 @@ class RoomPlanningService<T>(
         return true
     }
 
+    private fun spawnWorker(assignment: CreepAssignment, profile: WorkerSpawnProfile): Boolean {
+        val spawnActorId = availableSpawnActorId()
+            ?: return false
+
+        SpawnCommand.TrySpawnWorker(
+            assignment = assignment,
+            profile = profile
+        ).sendTo(spawnActorId)
+
+        return true
+    }
+
     private fun availableSpawnActorId(): String? =
         self.structures.my.spawns.firstOrNull { it.spawning == null }?.id
-
-    private fun findEnergyTransferTarget(): Structure? =
-        self.structures.my.run {
-            extensions.firstOrNull { it.energyStore.isNotFull }
-                ?: towers.firstOrNull { it.energyStore.isNotFull }
-                ?: spawns.firstOrNull { it.energyStore.isNotFull }
-        }
 }

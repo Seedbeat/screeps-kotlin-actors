@@ -1,6 +1,7 @@
 package spawn
 
 import actors.CreepAssignment
+import actors.WorkerSpawnProfile
 import creep.BodyRecipe
 import creep.BodySpec
 import memory.assignment
@@ -16,10 +17,15 @@ object SpawnerNew : ILogging by Logging<SpawnerNew>() {
 
     fun StructureSpawn.spawn(
         assignment: CreepAssignment,
+        profile: WorkerSpawnProfile = WorkerSpawnProfile.Standard,
         opt: SpawnOptions.() -> Unit = {}
     ): ScreepsReturnCode {
         val energyBudget = room.energyAvailable
-        val body = BodyRecipe.selectBodySpecByAssignment(energyBudget, assignment)
+        val body = BodyRecipe.selectBodySpecByAssignment(
+            energyBudget = energyBudget,
+            assignment = assignment,
+            profile = profile
+        )
             ?: return ERR_NOT_ENOUGH_ENERGY
 
         return spawn(

@@ -99,7 +99,10 @@ Prefer a protocol change over direct shared-state coupling across actor boundari
 - `SpawnActor` executes spawn-side actions and should not own room-wide population policy
 - do not use `room.find(FIND_MY_CREEPS)` as the authoritative room population source when remote or cross-room behavior matters
 - the first live room-survival slice is `RoomIntent.EnsureControllerSurvival`
+- steady-state workforce orchestration runs through `RoomIntent.PlanWorkforce`
+- workforce demand must be derived from room potential and room tasks, not only from currently alive creeps
 - room survival assigns `CreepAssignment.ControllerUpkeep` rather than relying on legacy creep roles
+- non-emergency controller sink work uses `CreepAssignment.ControllerProgress`
 
 ### Room resources
 

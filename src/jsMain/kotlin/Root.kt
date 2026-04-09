@@ -56,7 +56,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
     }
 
     fun postLoop() {
-        CpuLogger.print()
+//        CpuLogger.print()
 
         // try to generate pixel if bucket is filled
         if (Game.cpu.bucket >= 10000)

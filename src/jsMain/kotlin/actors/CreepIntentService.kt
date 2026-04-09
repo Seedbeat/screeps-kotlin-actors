@@ -27,6 +27,7 @@ class CreepIntentService<T>(
     suspend fun executeAssignment() = when (val assignment = self.memory.assignment) {
         null -> releaseLockedResourceIfHeld()
         is CreepAssignment.ControllerUpkeep -> executeControllerUpkeep(assignment)
+        is CreepAssignment.ControllerProgress -> executeControllerProgress(assignment)
         is CreepAssignment.Construction -> executeConstruction(assignment)
         is CreepAssignment.EnergyTransfer -> executeEnergyTransfer(assignment)
     }
@@ -44,6 +45,13 @@ class CreepIntentService<T>(
     }
 
     private suspend fun executeControllerUpkeep(assignment: CreepAssignment.ControllerUpkeep) {
+        val target = resolveRoomObject<StructureController>(assignment, assignment.controllerId)
+            ?: return clearAssignmentState()
+
+        executeHarvestBasedWork(assignment, target, action = Creep::upgradeController)
+    }
+
+    private suspend fun executeControllerProgress(assignment: CreepAssignment.ControllerProgress) {
         val target = resolveRoomObject<StructureController>(assignment, assignment.controllerId)
             ?: return clearAssignmentState()
 

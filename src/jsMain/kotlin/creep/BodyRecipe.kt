@@ -1,19 +1,51 @@
 package creep
 
 import actors.CreepAssignment
+import actors.WorkerSpawnProfile
 import creep.BodySpec.Companion.cost
 import creep.BodySpec.Companion.label
 import screeps.api.*
 
 object BodyRecipe {
-    fun selectBodySpecByAssignment(energyBudget: Int, assignment: CreepAssignment) = when (assignment) {
+    fun selectBodySpecByAssignment(
+        energyBudget: Int,
+        assignment: CreepAssignment,
+        profile: WorkerSpawnProfile = WorkerSpawnProfile.Standard
+    ) = when (assignment) {
         is CreepAssignment.ControllerUpkeep,
+        is CreepAssignment.ControllerProgress,
         is CreepAssignment.Construction,
-        is CreepAssignment.EnergyTransfer -> scaled(
+        is CreepAssignment.EnergyTransfer -> workerBody(energyBudget, profile)
+    }
+
+    fun plannedWorkUnits(
+        energyBudget: Int,
+        assignment: CreepAssignment,
+        profile: WorkerSpawnProfile = WorkerSpawnProfile.Standard
+    ): Int = selectBodySpecByAssignment(
+        energyBudget = energyBudget,
+        assignment = assignment,
+        profile = profile
+    )?.body?.count { part -> part == WORK } ?: 0
+
+    private fun workerBody(energyBudget: Int, profile: WorkerSpawnProfile) = when (profile) {
+        WorkerSpawnProfile.Bootstrap -> scaled(
+            energyBudget = energyBudget,
+            core = listOf(MOVE, WORK, CARRY)
+        )
+
+        WorkerSpawnProfile.Standard -> scaled(
             energyBudget = energyBudget,
             core = listOf(MOVE, WORK, CARRY),
             segment = listOf(MOVE, WORK, CARRY, MOVE),
             maxRepeats = 2
+        )
+
+        WorkerSpawnProfile.Heavy -> scaled(
+            energyBudget = energyBudget,
+            core = listOf(MOVE, WORK, CARRY),
+            segment = listOf(MOVE, WORK, CARRY, MOVE),
+            maxRepeats = 4
         )
     }
 

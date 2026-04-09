@@ -102,6 +102,7 @@ That includes:
 - room resource coordination
 - room intents
 - the first live survival intent: `RoomIntent.EnsureControllerSurvival`
+- the steady-state workforce intent: `RoomIntent.PlanWorkforce`
 
 Spawn-side execution belongs to `SpawnActor`.
 
@@ -116,9 +117,10 @@ Global creep counting belongs to `SystemActor`.
 Current first vertical slice:
 
 - `RoomActor` plans controller survival
+- `RoomActor` also owns room workforce allocation across transfer, construction, and controller progress
 - `SystemActor` answers creep-affiliation queries
 - `SpawnActor` spawns a cheap survival worker when no suitable creep exists
-- `CreepActor` executes `CreepAssignment.ControllerUpkeep` on `Lifecycle.Tick`
+- `CreepActor` executes actor-owned worker assignments such as `CreepAssignment.ControllerUpkeep`, `CreepAssignment.ControllerProgress`, `CreepAssignment.Construction`, and `CreepAssignment.EnergyTransfer` on `Lifecycle.Tick`
 - source locks are held only during the harvest phase and are released before the creep switches to controller upgrading
 
 Why this split exists:
