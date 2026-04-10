@@ -4,7 +4,7 @@ import actors.base.ActorBinding
 import actors.base.GameObjectBinding
 import screeps.api.OK
 import screeps.api.structures.StructureSpawn
-import spawn.SpawnerNew.spawn
+import spawn.Spawner.spawn
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging

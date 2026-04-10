@@ -1,7 +1,10 @@
 package spawn
 
-import creep.enums.CreepType
-import creep.enums.Role
+import actors.CreepAssignment
+import actors.WorkerSpawnProfile
+import creep.BodyRecipe
+import creep.BodySpec
+import memory.assignment
 import memory.createCreepMemory
 import memory.homeRoom
 import screeps.api.*
@@ -12,89 +15,57 @@ import utils.log.Logging
 
 object Spawner : ILogging by Logging<Spawner>() {
 
-    fun spawn(
-        structureSpawn: StructureSpawn,
-        role: Role,
-        opt: SpawnOptions.() -> Unit = {},
-        memory: CreepMemory.() -> Unit = {}
+    fun StructureSpawn.spawn(
+        assignment: CreepAssignment,
+        profile: WorkerSpawnProfile = WorkerSpawnProfile.Standard,
+        opt: SpawnOptions.() -> Unit = {}
     ): ScreepsReturnCode {
-        val available = role.availableTypes.takeIf { it.isNotEmpty() }
-            ?: return ERR_NOT_FOUND
-
-        val energy = structureSpawn.room.energyAvailable
-        val type = available.firstOrNull { it.cost <= energy }
+        val energyBudget = room.energyAvailable
+        val body = BodyRecipe.selectBodySpecByAssignment(
+            energyBudget = energyBudget,
+            assignment = assignment,
+            profile = profile
+        )
             ?: return ERR_NOT_ENOUGH_ENERGY
 
-        return spawn(structureSpawn, type, role, opt, memory)
+        return spawn(
+            body = body,
+            opt = opt
+        ) {
+            this.assignment = assignment
+        }
     }
 
-    fun spawn(
-        structureSpawn: StructureSpawn,
-        type: CreepType,
-        role: Role,
+    fun StructureSpawn.spawn(
+        body: BodySpec,
         opt: SpawnOptions.() -> Unit = {},
         memory: CreepMemory.() -> Unit = {}
     ): ScreepsReturnCode {
+        val name = generateCreepName(body)
+        val home = room.name
 
-        val (code, name) = structureSpawn.spawnCreep(type, role, opt, memory)
+        val options = options<SpawnOptions> {
+            this.memory = createCreepMemory {
+                homeRoom = home
+            }.also(memory)
+        }.also(opt)
+
+        val code = spawnCreep(
+            body = body.body,
+            name = name,
+            opts = options
+        )
 
         when (code) {
-            OK -> log.info("spawning $name with body $type")
-
-            ERR_BUSY,
-            ERR_NOT_ENOUGH_ENERGY -> run { } // do nothing
-            ERR_NAME_EXISTS -> log.error("Duplicated name to spawn creep:", name)
-
+            OK -> log.info("spawning $name with body ${body.label} cost=${body.cost}")
+            ERR_BUSY, ERR_NOT_ENOUGH_ENERGY -> Unit
+            ERR_NAME_EXISTS -> log.error("Duplicated name to spawn creep: $name")
             else -> log.error("unhandled error code $code")
         }
+
         return code
     }
 
-    private fun StructureSpawn.spawnCreep(
-        type: CreepType,
-        role: Role,
-        opt: SpawnOptions.() -> Unit = {},
-        memory: CreepMemory.() -> Unit = {}
-    ): Pair<ScreepsReturnCode, String> {
-        val name = generateCreepName(type, role)
-        return spawnCreep(
-            type.body,
-            name,
-            options<SpawnOptions> {
-                this.memory = createCreepMemory(type, role) {
-                    homeRoom = this@spawnCreep.room.name
-                }.also(memory)
-            }.also(opt)
-        ) to name
-    }
-
-    private fun generateCreepName(type: CreepType, role: Role): String {
-        val roleEmoji = when (role) {
-            Role.UNASSIGNED -> "❓"
-            Role.HARVESTER -> "🚜"
-            Role.BUILDER -> "🔨"
-            Role.UPGRADER -> "🛠️"
-            Role.REPAIRER -> "🔧"
-            Role.MINER -> "⛏️"
-            Role.COURIER -> "🚛"
-            Role.CARRIER -> "🚚"
-            Role.KNIGHT -> "🛡️"
-            Role.RANGER -> "🏹"
-            Role.HEALER -> "🩺"
-            Role.SCAVENGER -> "🧹"
-            Role.GRAVEDIGGER -> "⚰️"
-        }
-
-        val typeEmoji = when {
-            type.cost >= 1000 -> "💎"
-            type.cost >= 700 -> "🟣"
-            type.cost >= 550 -> "🔴"
-            type.cost >= 350 -> "🟠"
-            type.cost >= 250 -> "🟡"
-            type.cost > 0 -> "🟢"
-            else -> "❓"
-        }
-
-        return "$roleEmoji-$typeEmoji-${Game.time.toString(32)}"
-    }
+    private fun generateCreepName(body: BodySpec): String =
+        "${body.label}_${Game.time.toString(32)}"
 }
