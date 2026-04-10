@@ -1,4 +1,4 @@
-import actors.memory.delegates.memoryValue
+import memory.delegates.memoryValue
 import screeps.api.*
 import screeps.utils.mutableRecordOf
 import utils.log.ILogging

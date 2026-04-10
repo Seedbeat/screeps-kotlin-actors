@@ -1,0 +1,23 @@
+package room
+
+import actor.message.Request
+import room.enums.RoomResourceType
+import screeps.api.RoomPosition
+
+sealed interface RoomRequest<T> : Request<T> {
+    data class TryAcquireResourceById(
+        val ownerId: String,
+        val resourceId: String
+    ) : RoomRequest<Boolean?>
+
+    data class TryAcquireResourceByType(
+        val ownerId: String,
+        val near: RoomPosition,
+        val type: RoomResourceType
+    ) : RoomRequest<String?>
+
+    data class ReleaseResourceById(
+        val ownerId: String,
+        val resourceId: String
+    ) : RoomRequest<Boolean?>
+}

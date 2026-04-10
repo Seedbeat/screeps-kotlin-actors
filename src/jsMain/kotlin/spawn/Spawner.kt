@@ -1,12 +1,12 @@
 package spawn
 
-import actors.CreepAssignment
-import actors.WorkerSpawnProfile
-import creep.BodyRecipe
-import creep.BodySpec
+import creep.CreepAssignment
+import creep.body.BodyRecipe
+import creep.body.BodySpec
 import memory.assignment
 import memory.createCreepMemory
 import memory.homeRoom
+import room.planning.WorkerSpawnProfile
 import screeps.api.*
 import screeps.api.structures.SpawnOptions
 import screeps.api.structures.StructureSpawn

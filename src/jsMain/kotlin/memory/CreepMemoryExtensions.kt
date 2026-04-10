@@ -1,9 +1,9 @@
 package memory
 
-import actors.CreepAssignment
-import actors.memory.delegates.memoryNodeObject
-import actors.memory.delegates.memoryValue
-import actors.memory.types.creep.assignment.CreepAssignmentMemory
+import creep.CreepAssignment
+import memory.delegates.memoryNodeObject
+import memory.delegates.memoryValue
+import memory.types.assignment.CreepAssignmentMemory
 import screeps.api.CreepMemory
 import screeps.utils.unsafe.jsObject
 

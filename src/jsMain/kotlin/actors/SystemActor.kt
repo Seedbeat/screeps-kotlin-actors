@@ -1,8 +1,12 @@
 package actors
 
 import actors.base.*
+import creep.CreepActor
+import creep.CreepAssignment
+import creep.CreepStatus
 import memory.assignment
 import memory.delete
+import room.RoomActor
 import screeps.api.*
 import utils.log.ILogging
 import utils.log.LogLevel

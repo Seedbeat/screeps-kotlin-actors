@@ -1,5 +1,8 @@
 package room
 
+import room.context.RoomConstructionSites
+import room.context.RoomCreeps
+import room.context.RoomStructuresInfo
 import screeps.api.Room
 import utils.lazyOnce
 

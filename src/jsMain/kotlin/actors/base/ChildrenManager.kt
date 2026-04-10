@@ -3,10 +3,10 @@ package actors.base
 import actor.Actor
 import actor.ActorSystem
 import actor.message.Payload
-import actors.CreepActor
-import actors.RoomActor
-import actors.SpawnActor
+import creep.CreepActor
+import room.RoomActor
 import screeps.api.*
+import spawn.SpawnActor
 import utils.lazyPerTick
 
 interface ChildrenManager<T : Actor> {

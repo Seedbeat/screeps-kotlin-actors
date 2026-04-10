@@ -1,7 +1,8 @@
 package creep
 
 import Settings
-import creep.CreepCapabilities.Companion.from
+import creep.body.CreepCapabilities
+import creep.body.CreepCapabilities.Companion.from
 import invoke
 import screeps.api.*
 import utils.lazyOnce

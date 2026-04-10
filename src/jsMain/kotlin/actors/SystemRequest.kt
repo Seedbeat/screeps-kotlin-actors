@@ -1,6 +1,8 @@
 package actors
 
 import actor.message.Request
+import creep.CreepAssignment
+import creep.CreepStatus
 import screeps.api.Creep
 import kotlin.reflect.KClass
 

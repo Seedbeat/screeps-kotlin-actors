@@ -1,13 +1,13 @@
 package memory
 
-import actors.RoomPlanningCache
-import actors.memory.delegates.memoryEnum
-import actors.memory.delegates.memoryNode
-import actors.memory.delegates.memoryNodeObject
-import actors.memory.delegates.memoryValue
-import actors.memory.types.RoomPlanningCacheMemory
-import actors.memory.types.Semaphore
-import room.RoomStage
+import memory.delegates.memoryEnum
+import memory.delegates.memoryNode
+import memory.delegates.memoryNodeObject
+import memory.delegates.memoryValue
+import memory.types.RoomPlanningCacheMemory
+import memory.types.Semaphore
+import room.enums.RoomStage
+import room.planning.RoomPlanningCache
 import screeps.api.RoomMemory
 import utils.ResourceLockOwners
 

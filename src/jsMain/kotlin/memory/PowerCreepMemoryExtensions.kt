@@ -1,6 +1,6 @@
 package memory
 
-import actors.memory.delegates.memoryValue
+import memory.delegates.memoryValue
 import screeps.api.PowerCreepMemory
 
 /* Rest of the persistent memory structures.
