@@ -28,8 +28,8 @@ abstract class ActorBase<
                     log.debug("[${msg.messageId}]: send response to '${msg.from}'")
                     reply(msg, response)
                 }
-            } catch (_: Exception) {
-                log.error("[Root exception handler] fail to process $msg")
+            } catch (exception: Throwable) {
+                log.error("[Root exception handler] fail to process $msg", exception.stackTraceToString())
             }
         }
     }

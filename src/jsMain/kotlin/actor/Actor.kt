@@ -19,7 +19,7 @@ abstract class Actor(override val id: String) : MessagingApi, ILogging {
         override fun resumeWith(result: Result<Unit>) {
             destroy()
             ActorSystem.remove(id)
-            log.info("[Lifecycle] Finished: $result")
+            log.info("[Lifecycle] Finished: $result, exception: ${result.exceptionOrNull()?.printStackTrace()}")
         }
     })
     private val mailbox = mutableListOf<Message>()
@@ -39,8 +39,8 @@ abstract class Actor(override val id: String) : MessagingApi, ILogging {
 
         try {
             onDestroy()
-        } catch (exception: Exception) {
-            log.error("[Lifecycle] onDestroy failed", exception)
+        } catch (exception: Throwable) {
+            log.error("[Lifecycle] onDestroy failed", exception.stackTraceToString())
         } finally {
             isDestroyed = true
         }

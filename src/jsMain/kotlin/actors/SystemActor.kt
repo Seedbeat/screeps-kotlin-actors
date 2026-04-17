@@ -8,6 +8,7 @@ import memory.assignment
 import memory.delete
 import room.RoomActor
 import screeps.api.*
+import utils.Object
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -95,7 +96,7 @@ class SystemActor(id: String) :
     }
 
     private fun cleanupStaleCreepMemory() {
-        Memory.creeps.keys
+        Object.keys(obj = Memory.creeps)
             .filter { name -> Game.creeps[name] == null }
             .forEach { name ->
                 log.info("Deleting stale creep memory: $name")
