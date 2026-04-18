@@ -2,10 +2,12 @@ package utils
 
 import Root
 import screeps.api.Game
+import utils.Number.toFixed
 import kotlin.reflect.KFunction
 
 object CpuLogger {
     private const val isEnabled = true
+    private const val accuracy = 2
 
     private val filter: HashSet<String> = hashSetOf(
 //        CreepExecutor::class.simpleName
@@ -90,10 +92,12 @@ object CpuLogger {
     fun marks(): Map<String, Mark> = marks
 
     fun print() {
+        if (!isEnabled) return
+
         marks.values.forEach { mark ->
-            Root.log.info(mark.name().padEnd(40), "CPU:", mark.diff)
+            Root.log.info(mark.name().padEnd(40), "CPU:", mark.diff.toFixed(accuracy))
         }
     }
 
-    fun total() = Game.cpu.getUsed()
+    fun total() = Game.cpu.getUsed().toFixed(accuracy)
 }
