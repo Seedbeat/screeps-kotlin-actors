@@ -2,15 +2,16 @@ package room.planning
 
 import map.mapAround
 import room.enums.RoomStage
-import screeps.api.*
+import room.find
+import screeps.api.FIND_SOURCES
+import screeps.api.Room
 
 object RoomStagePlanner {
     fun calculate(room: Room): RoomStage {
         val controllerLevel = room.controller?.level ?: 0
-        val myStructures = room.find(FIND_MY_STRUCTURES)
 
-        val extensionCount = myStructures.count { it.structureType == STRUCTURE_EXTENSION }
-        val towerCount = myStructures.count { it.structureType == STRUCTURE_TOWER }
+        val extensionCount = room.find.my.structures.extensions.size
+        val towerCount = room.find.my.structures.towers.size
 
         val hasAllSourceContainers = hasAllSourcesAdjacentToContainers(room)
         val hasStorage = room.storage != null
@@ -41,10 +42,8 @@ object RoomStagePlanner {
             return false
         }
 
-        val containersByPos = room.find(
-            findConstant = FIND_STRUCTURES,
-            opts = options { filter = { it.structureType == STRUCTURE_CONTAINER } }
-        ).associateBy { container -> container.pos.x to container.pos.y }
+        val containersByPos = room.find.my.structures.containers
+            .associateBy { container -> container.pos.x to container.pos.y }
 
         return sources.all { source ->
             source.mapAround { x, y -> containersByPos[x to y] }.any()

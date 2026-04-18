@@ -3,8 +3,7 @@ package room.planning
 import heuristics.ConstructionSiteHeuristics
 import map.openSidesCount
 import memory.stage
-import room.constructionSites
-import room.structures
+import room.find
 import screeps.api.FIND_SOURCES
 import screeps.api.Game
 import screeps.api.Room
@@ -12,7 +11,7 @@ import store.energyStore
 
 object RoomPlanningAnalyzer {
     fun analyze(room: Room): RoomPlanningCache {
-        val constructionSites = room.constructionSites.my
+        val constructionSites = room.find.my.constructionSites
         val remainingConstructionWork = constructionSites.sumOf { site -> site.progressTotal - site.progress }
         val terrain = room.getTerrain()
         val sources = room.find(FIND_SOURCES)
@@ -26,7 +25,7 @@ object RoomPlanningAnalyzer {
             ConstructionSiteHeuristics.sitePriority(site) >= 3
         }
 
-        val containersEnergy = room.structures.my.containers.sumOf { container ->
+        val containersEnergy = room.find.my.structures.containers.sumOf { container ->
             container.energyStore.used
         }
 
@@ -43,12 +42,12 @@ object RoomPlanningAnalyzer {
             totalSourceOpenSides = totalSourceOpenSides,
             sustainableIncome = sources.size * 10,
             bufferedEnergy = bufferedEnergy,
-            spawnCount = room.structures.my.spawns.size,
-            extensionCount = room.structures.my.extensions.size,
-            towerCount = room.structures.my.towers.size,
-            spawnEnergyDeficit = room.structures.my.spawns.sumOf { spawn -> spawn.energyStore.free },
-            extensionEnergyDeficit = room.structures.my.extensions.sumOf { extension -> extension.energyStore.free },
-            towerEnergyDeficit = room.structures.my.towers.sumOf { tower -> tower.energyStore.free },
+            spawnCount = room.find.my.structures.spawns.size,
+            extensionCount = room.find.my.structures.extensions.size,
+            towerCount = room.find.my.structures.towers.size,
+            spawnEnergyDeficit = room.find.my.structures.spawns.sumOf { spawn -> spawn.energyStore.free },
+            extensionEnergyDeficit = room.find.my.structures.extensions.sumOf { extension -> extension.energyStore.free },
+            towerEnergyDeficit = room.find.my.structures.towers.sumOf { tower -> tower.energyStore.free },
             hasStorage = room.storage != null,
             hasTerminal = room.terminal != null,
             controllerTicksToDowngrade = room.controller?.ticksToDowngrade ?: Int.MAX_VALUE,

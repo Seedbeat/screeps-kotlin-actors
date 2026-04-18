@@ -4,6 +4,7 @@ import Root
 import screeps.api.*
 import screeps.api.structures.*
 import utils.cache.CachedArrayInstance
+import utils.cache.getByRoomFind
 
 open class RoomStructures(
     val room: Room,
@@ -12,9 +13,7 @@ open class RoomStructures(
     val structuresCache = CachedArrayInstance<Structure>(lifetime = Root.LOCAL_TIME_MAX)
 
     val all: Array<Structure>
-        get() = structuresCache.getOrPut(firstKey = room.name, secondKey = initial) {
-            room.find(findConstant = initial)
-        }
+        get() = structuresCache.getByRoomFind(room, findConstant = initial)
 
     inline fun <reified T : Structure> getStructures(type: StructureConstant): Array<T> =
         structuresCache.getOrPutTyped(firstKey = room.name, secondKey = type) {
@@ -33,7 +32,7 @@ open class RoomStructures(
     val ramparts: Array<StructureRampart> get() = getStructures(STRUCTURE_RAMPART)
     val keeperLairs: Array<StructureKeeperLair> get() = getStructures(STRUCTURE_KEEPER_LAIR)
     val portals: Array<StructurePortal> get() = getStructures(STRUCTURE_PORTAL)
-    val controllers: Array<StructureController> get() = getStructures(STRUCTURE_CONTROLLER)
+    val controller: StructureController? get() = getStructure(STRUCTURE_CONTROLLER)
     val links: Array<StructureLink> get() = getStructures(STRUCTURE_LINK)
     val storage: StructureStorage? get() = getStructure(STRUCTURE_STORAGE)
     val towers: Array<StructureTower> get() = getStructures(STRUCTURE_TOWER)

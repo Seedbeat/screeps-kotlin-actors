@@ -1,6 +1,6 @@
 package room.planning
 
-import room.structures
+import room.find
 import screeps.api.Room
 import screeps.api.STRUCTURE_EXTENSION
 import screeps.api.STRUCTURE_SPAWN
@@ -56,7 +56,7 @@ object EnergyTransferPlanningPolicy {
         room: Room,
         assignedTargetCounts: Map<String, Int>,
         mode: RoomWorkMode
-    ): List<Structure> = room.structures.my.run {
+    ): List<Structure> = room.find.my.structures.run {
         (extensions.asList() + spawns.asList() + towers.asList())
             .filter { target ->
                 target.storeOwner.energyStore.isNotFull && (assignedTargetCounts[target.id] ?: 0) < 1

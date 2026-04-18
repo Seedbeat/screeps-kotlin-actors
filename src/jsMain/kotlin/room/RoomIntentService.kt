@@ -70,7 +70,7 @@ class RoomIntentService<T>(
         val controller = self.controller
             ?: return IntentResultType.RETAINED
 
-        val constructionSites = self.constructionSites.my
+        val constructionSites = self.find.my.constructionSites
         val roomWorkers = roomWorkers()
         val assignedSiteCounts = roomWorkers
             .mapNotNull { status -> (status.assignment as? CreepAssignment.Construction)?.constructionSiteId }
@@ -284,5 +284,5 @@ class RoomIntentService<T>(
     }
 
     private fun availableSpawnActorId(): String? =
-        self.structures.my.spawns.firstOrNull { it.spawning == null }?.id
+        self.find.my.structures.spawns.firstOrNull { it.spawning == null }?.id
 }
