@@ -128,6 +128,16 @@ This task depends on `release` and uploads the release directory contents to the
 Deploy fails the Gradle task when the Screeps API returns a non-2xx response.
 The HTTP client uses a 30 second connect timeout.
 
+Local deploy:
+
+```text
+./gradlew deploy-local
+```
+
+This task depends on `release` and copies the release directory contents to `screepsLocal/screepsBranch`. The generated
+release module is renamed to `main.js` for the local Screeps directory. The task overwrites matching generated modules
+but does not delete other files in the local branch directory.
+
 ## Deploy Properties
 
 Supported Gradle properties:
@@ -136,6 +146,7 @@ Supported Gradle properties:
 - `screepsPassword`
 - `screepsToken`
 - `screepsHost`
+- `screepsLocal`
 - `screepsBranch`
 - `bundleMode`
 
@@ -144,6 +155,9 @@ Defaults:
 - `screepsHost`: `https://screeps.com`
 - `screepsBranch`: `default`
 - `bundleMode`: `debug`
+
+`screepsLocal` has no default. Set it to the local Screeps scripts root; `deploy-local` appends `screepsBranch` to that
+path.
 
 `build.gradle.kts` currently also declares `screepsDebugBranch` and `debugReleaseDirectory`, but no registered task uses
 them. There is no `release-debug` or `deploy-debug` task in the current script.
@@ -182,6 +196,7 @@ Use these checks by change type:
 - release changes: `./gradlew release`
 - production release changes: `./gradlew release -PbundleMode=production`
 - deploy changes: `./gradlew deploy` only when credentials and target branch are intentional
+- local deploy changes: `./gradlew deploy-local` only when `screepsLocal` and target branch are intentional
 
 The network can be restricted in automation environments, so Gradle may fail if dependencies are not already cached.
 

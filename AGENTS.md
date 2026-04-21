@@ -244,6 +244,7 @@ Important tasks:
 - `./gradlew optimize`
 - `./gradlew release`
 - `./gradlew deploy`
+- `./gradlew deploy-local`
 
 There are no test source files in this checkout at the time of this scan. Use `./gradlew build` as the basic
 verification path for source changes. For docs-only changes, use markdown/link sanity checks and `git diff --check`.

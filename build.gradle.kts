@@ -23,11 +23,10 @@ val screepsUser: String? by project
 val screepsPassword: String? by project
 val screepsToken: String? by project
 val screepsHost: String? by project
+val screepsLocal: String? by project
 val screepsBranch: String? by project
-val screepsDebugBranch: String? by project
 val bundleMode: String? by project
 val branch = screepsBranch ?: "default"
-val debugBranch = screepsDebugBranch ?: "test"
 val host = screepsHost ?: "https://screeps.com"
 
 val bundledDirectory: Directory = project.layout.buildDirectory.dir("bundle").get()
@@ -38,6 +37,12 @@ val debugReleaseDirectory: Directory = bundledDirectory.dir("debug-release")
 val webpackJsFilename: String = "${project.name}-webpack.js"
 val optimizedJsFilename: String = "${project.name}-optimized.js"
 val releaseJsFilename: String = "${project.name}.js"
+val localReleaseJsFilename: String = "main.js"
+val localDeployDirectory = providers.provider {
+    val localRoot = screepsLocal?.takeIf { it.isNotBlank() }
+        ?: throw InvalidUserDataException("you need to supply screepsLocal before you can deploy code locally")
+    file(localRoot).resolve(branch)
+}
 
 val isBundleDebug: Boolean
     get() = when (bundleMode?.lowercase()) {
@@ -142,7 +147,7 @@ val releaseOptimized = tasks.register<Sync>("release-optimized") {
 
 val release = tasks.register("release") {
     group = "screeps"
-    description = "Builds the default optimized Screeps release bundle."
+    description = "Builds the selected Screeps release bundle."
 
     if (isBundleDebug) {
         dependsOn(releaseMinified)
@@ -153,10 +158,27 @@ val release = tasks.register("release") {
 
 tasks.register("deploy") {
     group = "screeps"
-    description = "Uploads the optimized release bundle to the configured Screeps server."
+    description = "Uploads the release bundle to the configured Screeps server."
     dependsOn(release)
 
     configureScreepsUpload(releaseDirectory, branch)
+}
+
+tasks.register<Copy>("deploy-local") {
+    group = "screeps"
+    description = "Copies the release bundle to screepsLocal/screepsBranch for local Screeps."
+    dependsOn(release)
+
+    from(releaseDirectory) {
+        rename { fileName: String ->
+            if (fileName == releaseJsFilename) localReleaseJsFilename else fileName
+        }
+    }
+    into(localDeployDirectory)
+
+    doFirst {
+        logger.lifecycle("Deploying Screeps to ${localDeployDirectory.get().absolutePath}")
+    }
 }
 
 fun Task.configureScreepsUpload(codeDirectory: Directory, targetBranch: String) {
