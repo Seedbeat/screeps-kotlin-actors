@@ -8,14 +8,14 @@ This project is a Kotlin/JS Screeps bot built around an actor runtime. The curre
 
 Read these in order:
 
-1. `README.md`: this project map.
-2. `actor-runtime.md`: how actors, mailboxes, requests, wakeups, and ticks work.
-3. `domain-actors.md`: which actor owns which behavior and which messages are available.
-4. `room-planning-and-resources.md`: room stages, workforce planning, and resource semaphores.
-5. `creep-assignments.md`: assignment memory and per-creep execution.
-6. `memory-and-persistence.md`: Memory schema, codecs, and reset semantics.
-7. `build-and-deploy.md`: Gradle build, release, and deploy pipeline.
-8. `development-guide.md`: safe change recipes, known gaps, and review checklist.
+1. [README](README.md): this project map.
+2. [Actor runtime](actor-runtime.md): how actors, mailboxes, requests, wakeups, and ticks work.
+3. [Domain actors](domain-actors.md): which actor owns which behavior and which messages are available.
+4. [Room planning/resources](room-planning-and-resources.md): room stages, workforce planning, and resource semaphores.
+5. [Creep assignments](creep-assignments.md): assignment memory and per-creep execution.
+6. [Memory & Persistence](memory-and-persistence.md): Memory schema, codecs, and reset semantics.
+7. [Build & Deploy](build-and-deploy.md): Gradle build, release, and deploy pipeline.
+8. [Development guide](development-guide.md): safe change recipes, known gaps, and review checklist.
 
 ## Runtime Summary
 
