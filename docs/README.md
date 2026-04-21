@@ -3,8 +3,6 @@
 Last source scan: 2026-04-21.
 
 This project is a Kotlin/JS Screeps bot built around an actor runtime. The current tree is compact and actor-first.
-Previous documentation mentioned legacy scheduler and role directories, but those paths are not present in this
-checkout.
 
 ## Start Here
 
@@ -39,9 +37,6 @@ Main.loop()
            -> ActorSystem.tick()
      -> Root.postLoop()
 ```
-
-`EventScheduler`, `scheduler/`, `creep/roles/`, and `RoomContext.kt` do not exist in this checkout. Do not look for the
-active runtime there.
 
 ## Current Behavior
 

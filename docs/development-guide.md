@@ -100,8 +100,8 @@ Preserve:
 
 If changing scheduling, document:
 
-- old order
-- new order
+- current order
+- proposed order
 - reason
 - impact on request continuations
 - impact on reset behavior

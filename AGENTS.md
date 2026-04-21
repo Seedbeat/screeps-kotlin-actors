@@ -2,8 +2,8 @@
 
 ## Project
 
-`screeps-kotlin-actors` is a Kotlin/JS Screeps bot. The checked-out project is actor-first: there is no active legacy
-scheduler path in this tree, and the runtime should be understood from the actor packages.
+`screeps-kotlin-actors` is a Kotlin/JS Screeps bot. The checked-out project is actor-first, and the runtime should be
+understood from the actor packages.
 
 Authoritative loop:
 
@@ -13,9 +13,6 @@ Authoritative loop:
 - `Actors.init()` spawns `SystemActor` with actor id `SYSTEM` and sends `Lifecycle.Bootstrap`
 - each game tick calls `Actors.tick()`
 - `Actors.tick()` sends `Lifecycle.Tick` to `SYSTEM`, then runs `ActorSystem.tick()`
-
-Earlier documentation referenced `scheduler/`, `creep/roles/`, and `RoomContext.kt`. Those paths are not present in this
-checkout. Do not recreate a scheduler shortcut unless the user explicitly asks for a separate legacy experiment.
 
 ## Read These Docs
 
@@ -228,7 +225,7 @@ Rules:
 - Do not assume actor-local fields, mailboxes, sleepers, or pending continuations survive reset.
 - If you add persistent actor state, define schema, write path, read path, and reset behavior.
 - Keep persisted assignment state reconstructible from explicit fields.
-- Do not add compatibility branches for obsolete memory shapes unless the active runtime depends on them.
+- Keep persisted data reconstructible from explicit fields.
 
 ## Build And Verification
 
@@ -295,10 +292,10 @@ Stop for human review when the task requires:
 
 - redesigning the actor hierarchy
 - replacing the persistence format
-- choosing between incompatible migration strategies
+- changing persisted schema semantics
 - moving a large behavior block without clear ownership
 - changing core scheduling, mailbox ordering, or continuation semantics
-- deciding whether to preserve old memory data that the active runtime does not read
+- changing recovery behavior for persisted memory
 
 Small correctness fixes that preserve scheduling and ownership do not require a stop.
 

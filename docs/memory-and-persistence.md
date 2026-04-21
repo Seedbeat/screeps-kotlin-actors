@@ -201,7 +201,7 @@ When adding persistent state:
 4. Define read behavior for partial/corrupt data.
 5. Define clear behavior if the object disappears.
 6. Document reset behavior.
-7. Avoid compatibility branches for old shapes unless the active runtime reads them.
+7. Keep persisted data reconstructible from explicit fields.
 
 Do not assume `ActorKernel.snapshot()` is enough for new persistent actor behavior.
 
