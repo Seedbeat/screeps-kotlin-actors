@@ -2,337 +2,316 @@
 
 ## Project
 
-`screeps-kotlin-actors` is a Kotlin/JS Screeps bot. The current development focus is migrating the old scheduler/role system to an actor-based runtime.
+`screeps-kotlin-actors` is a Kotlin/JS Screeps bot. The checked-out project is actor-first: there is no active legacy
+scheduler path in this tree, and the runtime should be understood from the actor packages.
 
-The active runtime path is:
+Authoritative loop:
 
-- `Main.loop()` -> `Root.gameLoop()`
-- `Root.onReset()` -> `actors.base.Actors.init()`
-- `Root.loop()` -> `actors.base.Actors.tick()`
-- `EventScheduler.execute()` is disabled in `Root`
+- `Main.loop()` calls `Root.gameLoop()`
+- first tick after a VM reset calls `Root.onReset()`
+- `Root.onReset()` calls `actors.base.Actors.init()`
+- `Actors.init()` spawns `SystemActor` with actor id `SYSTEM` and sends `Lifecycle.Bootstrap`
+- each game tick calls `Actors.tick()`
+- `Actors.tick()` sends `Lifecycle.Tick` to `SYSTEM`, then runs `ActorSystem.tick()`
 
-The actor runtime is authoritative. Legacy scheduler code remains as migration source material.
+Earlier documentation referenced `scheduler/`, `creep/roles/`, and `RoomContext.kt`. Those paths are not present in this
+checkout. Do not recreate a scheduler shortcut unless the user explicitly asks for a separate legacy experiment.
 
----
+## Read These Docs
 
-## Runtime
+Start with:
 
-### Active modules
+- `docs/README.md` for project map and reading order
+- `docs/actor-runtime.md` for scheduler, mailbox, request/response, and reset behavior
+- `docs/domain-actors.md` for actor ownership and protocols
+- `docs/room-planning-and-resources.md` for workforce planning and resource locks
+- `docs/creep-assignments.md` for creep behavior and memory-backed assignments
+- `docs/memory-and-persistence.md` for Memory schema and reset semantics
+- `docs/build-and-deploy.md` for Gradle tasks and Screeps upload behavior
+- `docs/development-guide.md` for safe change recipes and known gaps
 
-- actor runtime: `src/jsMain/kotlin/actor/`
-- domain actors: `src/jsMain/kotlin/actors/`
-- runtime entry helpers: `src/jsMain/kotlin/actors/base/Actors.kt`
+Keep these files current when behavior or ownership changes enough that another LLM would be misled.
 
-Module boundary:
+## Source Map
 
-- `actor/` is runtime infrastructure
-- `actors/` is business logic
-- the main integration surface between `actors/` and `actor/` is `ActorBase`
-- business logic should not talk to `ActorKernel` directly
-- `ActorKernel` should behave as runtime core and interact through `ActorSystem`
+- `src/jsMain/kotlin/Main.kt`: exported Screeps `loop`
+- `src/jsMain/kotlin/Root.kt`: top-level tick lifecycle, CPU logging, pixel generation
+- `src/jsMain/kotlin/actor/`: runtime infrastructure
+- `src/jsMain/kotlin/actors/`: system actor, actor base classes, child managers, intents
+- `src/jsMain/kotlin/room/`: room actor, room protocols, semaphore service, planning integration
+- `src/jsMain/kotlin/room/planning/`: room stage, planning cache, workforce allocation policies
+- `src/jsMain/kotlin/creep/`: creep actor, assignments, assignment executor, bodies
+- `src/jsMain/kotlin/spawn/`: spawn actor and spawn execution helper
+- `src/jsMain/kotlin/memory/`: typed Memory extensions, codecs, memory nodes
+- `src/jsMain/kotlin/room/context/`: cached room find helpers
+- `src/jsMain/kotlin/store/`, `map/`, `heuristics/`, `utils/`: shared helpers
+- `src/Constants.js`: Screeps constants shim used by the JS build
 
-### Ownership
+## Runtime Boundaries
+
+Use these boundaries consistently:
+
+- `actor/` is runtime core: actor registration, mailboxes, scheduling, wakeups, request continuations, snapshots.
+- `actors/` and domain packages are business logic.
+- Domain code should use `ActorBase`, `ActorApi`, `MessagingApi`, and `ActorSystem` facade methods.
+- Domain code should not reach into `ActorKernel` directly.
+- `ActorKernel` should not gain room, creep, spawn, or Screeps policy.
+
+The main integration surface is `ActorBase`, which classifies payloads into lifecycle messages, commands, and requests.
+
+## Actor Ownership
+
+Current ownership tree:
 
 - `SystemActor`
-  - actor id `SYSTEM`
-  - owns `RoomActor` for player-controlled rooms
-  - owns `CreepActor` for all player creeps in `Game.creeps`
-  - answers global creep-affiliation queries for planning
+  - actor id: `SYSTEM`
+  - owns `RoomActor` for rooms where `room.controller?.my == true`
+  - owns `CreepActor` for all names in `Game.creeps`
+  - answers global creep queries for planning
+  - deletes stale entries in `Memory.creeps`
 - `RoomActor`
-  - actor id is the room name
-  - owns `SpawnActor` for that room
-  - owns room-wide planning, semaphore sync, and room resource coordination
+  - actor id: room name
+  - owns `SpawnActor` for `FIND_MY_SPAWNS` in that room
+  - owns room scans, stage sync, planning cache sync, resource semaphore sync, and room intents
 - `SpawnActor`
-  - actor id is `StructureSpawn.id`
-  - executes spawn-side actions
-  - still delegates actual spawn execution to legacy `spawn/Spawner.kt`
+  - actor id: `StructureSpawn.id`
+  - executes `SpawnCommand.TrySpawnWorker`
+  - delegates actual `spawnCreep` setup to `spawn/Spawner.kt`
 - `CreepActor`
-  - actor id is the creep name
-  - lifecycle is global, not derived from current room position
-  - owns creep-local execution, cleanup, and request handling
+  - actor id: creep name
+  - owns creep-local assignment execution, assignment cleanup, and locked resource memory
 
-### Affiliation
+Actor ownership must not depend on current room position. Creeps are global actors because a creep can move between
+rooms while still belonging to the same long-lived runtime entity.
 
-Use these meanings consistently:
+## Affiliation Terms
 
-- `CreepMemory.homeRoom`
-  - persistent room affiliation for room-level ownership and population planning
-- `CreepMemory.assignment.roomName`
-  - persistent task-assignment room owned by the assignment state
-- `Game.creeps[name].room.name`
-  - live current room
+Use these meanings precisely:
+
+- `CreepMemory.homeRoom`: persistent room affiliation used for room ownership and workforce planning.
+- `CreepAssignment.roomName`: persistent task-affiliation room owned by assignment state.
+- `Game.creeps[name].room.name`: live current room, derived from Screeps state.
 
 Rules:
 
-- actor ownership must not depend on current room position
-- current room is derived runtime state, not authoritative persistence
-- room population logic should query `SystemActor` when affiliation matters
+- Do not persist current room as actor truth.
+- Do not derive `CreepActor` ownership from current room.
+- Room population logic should query `SystemActor` when affiliation matters.
+- Room logic may consider both `homeRoom == room.name` and `assignment?.roomName == room.name` when it needs workers
+  currently serving the room.
 
-### Message model
+## Message Model
 
-Actors communicate only through explicit protocols:
+Actors communicate through explicit payload protocols:
 
 - lifecycle: `actors.base.Lifecycle`
 - commands: `*Command`
 - requests: `*Request`
 - responses: `*Response`
 
-Prefer a protocol change over direct shared-state coupling across actor boundaries.
+Prefer a protocol addition over shared mutable state across actor boundaries.
 
-### Kernel invariants
+Current request protocols:
 
-- actor scheduling is cooperative and coroutine-based
-- `ActorKernel` owns mailbox delivery, next-tick wakeups, and request/response continuation scheduling
-- `ActorKernel` is runtime core, not business-logic API
-- business logic in `actors/` should reach runtime services through `ActorBase` and `ActorSystem`, not through direct `ActorKernel` calls
+- `SystemRequest.Query.Creeps`
+- `SystemRequest.Query.CreepsByAssignment`
+- `RoomRequest.TryAcquireResourceById`
+- `RoomRequest.TryAcquireResourceByType`
+- `RoomRequest.ReleaseResourceById`
+
+Current command protocols:
+
+- `RoomCommand.Scan`, `SyncStage`, `SyncPlanningCache`, `SyncSemaphores`
+- `RoomIntent.EnsureControllerSurvival`, `RoomIntent.PlanWorkforce`
+- `SpawnCommand.TrySpawnWorker`
+- `CreepCommand.Assign`, `ClearAssignment`, `SetLockedResourceId`
+
+`SpawnRequest` and `CreepRequest` are marker protocols with no implemented request handlers at the time of this scan. Do
+not send request payloads to those actors until handlers exist.
+
+## Kernel Invariants
+
+Preserve these runtime semantics unless the user explicitly asks for a runtime redesign:
+
+- actors are cooperative coroutines
+- messages enter per-actor mailboxes
+- only sleeping actors with queued mail are placed in the ready queue
+- `ActorSystem.tick()` runs rounds of wakeups, scheduled continuations, and mailbox delivery
+- `TickState` stops on max steps or CPU reserve
+- `MessageId` resets each tick and produces ids like `Game.time|seed`
+- responses match pending requests by message id
 - request continuations must not hang indefinitely
-- if a request target disappears before responding, the requester must fail explicitly
-- preserve scheduling and message-ordering semantics unless a change is explicitly intended and documented
+- if a request target is missing or disappears before responding, fail the requester explicitly
+- removing an actor destroys it, clears runtime waiters, and fails pending responses where it is the target
+- scheduled continuations for removed actors are dropped
 
----
+Be cautious with any change to mailbox ordering, continuation flushing, lifecycle ordering, or request failure behavior.
 
-## Planning and resources
+Current gap: target-missing and target-removed request failures are explicit, but exceptions thrown while processing a
+request in `ActorBase` are logged and do not currently synthesize an error response. Keep request handlers total, or add
+explicit failure semantics before adding request-heavy protocols.
 
-### Room planning
+## Room Planning
 
-- room-level population targets belong to `RoomActor`
-- `SpawnActor` executes spawn-side actions and should not own room-wide population policy
-- do not use `room.find(FIND_MY_CREEPS)` as the authoritative room population source when remote or cross-room behavior matters
-- the first live room-survival slice is `RoomIntent.EnsureControllerSurvival`
-- steady-state workforce orchestration runs through `RoomIntent.PlanWorkforce`
-- workforce demand must be derived from room potential and room tasks, not only from currently alive creeps
-- room survival assigns `CreepAssignment.ControllerUpkeep` rather than relying on legacy creep roles
-- non-emergency controller sink work uses `CreepAssignment.ControllerProgress`
+Room-wide policy belongs to `RoomActor` and `RoomIntentService`.
 
-### Room resources
+Current room intents:
 
-- `RoomActor` owns semaphore sync
-- `RoomSemaphoreCoordinator` computes resource semaphore definitions
-- `RoomRequest.TryAcquireResource` acquires room-managed resource locks
-- `RoomRequest.ReleaseResource` releases room-managed resource locks
-- `RoomActor` reconciles orphaned lock owners when the owning actor no longer exists
-- `CreepActor` may hold a source lock only while actively harvesting for its current assignment
+- `EnsureControllerSurvival`: ensure at least one controller upkeep assignment exists or request a bootstrap worker.
+- `PlanWorkforce`: allocate work units across energy transfer, construction, and controller progress.
+
+Current workforce assignments:
+
+- `CreepAssignment.ControllerUpkeep`
+- `CreepAssignment.ControllerProgress`
+- `CreepAssignment.Construction`
+- `CreepAssignment.EnergyTransfer`
 
 Rules:
 
-- prefer room-mediated acquire/release over ad hoc memory writes
-- if semaphore shape or lock semantics change, review both actor code and legacy helpers
-- when checking whether a lock owner still exists, use actor/runtime ownership rules rather than room-local creep presence
-- release source locks immediately when leaving the harvest phase; `ClearAssignment` and `onDestroy` are fallback cleanup paths, not the normal lock lifetime
+- `SpawnActor` executes spawn commands but should not own population policy.
+- Room planning should derive demand from room potential, planning cache, task demand, and affiliated workers, not only
+  from live room creeps.
+- `room.find(FIND_MY_CREEPS)` is not authoritative for cross-room planning.
+- Non-emergency controller work uses `ControllerProgress`; survival work uses `ControllerUpkeep`.
 
----
+## Room Resources
+
+Room resource arbitration belongs to `RoomActor` through `RoomSemaphoreService`.
+
+Current resource type:
+
+- `RoomResourceType.SOURCE`
+
+Current memory:
+
+- `RoomMemory.resourceSemaphore`
+- `RoomMemory.resourceLockOwners`
+- `CreepMemory.lockedObjectId`
+
+Rules:
+
+- Prefer room-mediated acquire/release requests over ad hoc memory writes.
+- A creep may hold a source lock only while it is in the harvest phase for its current assignment.
+- Release source locks before switching into the work phase.
+- `ClearAssignment` and actor destruction are fallback cleanup paths, not the normal lock lifetime.
+- When reconciling orphaned owners, use actor existence (`ActorSystem.contains`) rather than room-local creep presence.
+- If semaphore definitions change, review `RoomSemaphoreCoordinator`, `RoomSemaphoreService`, assignment execution, and
+  memory schema together.
 
 ## Persistence
 
 Persistence is partial. Be precise.
 
-Current state:
+Current persisted state:
 
-- `ActorSystem.tick()` writes `Memory.actorKernelSnapshot`
-- `ActorKernel.snapshot()` stores actor ids and actor type names
-- `ActorKernel.restore()` does not rehydrate actor instances yet
-- creep affiliation persists through `CreepMemory.homeRoom`
-- assignment-owned room affinity persists through `CreepMemory.assignment.roomName`
-- creep assignment state for actor-owned behavior is persisted through creep memory fields
+- `Memory.actorKernelSnapshot`: actor ids and actor type names only
+- `Memory.settings`
+- `RoomMemory.stage`
+- `RoomMemory.planningCache`
+- `RoomMemory.resourceSemaphore`
+- `RoomMemory.resourceLockOwners`
+- `CreepMemory.homeRoom`
+- `CreepMemory.assignment`
+- `CreepMemory.lockedObjectId`
 
-Implications:
+Current reset behavior:
 
-- do not assume arbitrary actor-local state survives reset
-- actor snapshotting is runtime bookkeeping, not full restoration
-- current room position should be derived from `Game`, not persisted as actor truth
-- if assignment or phase is persisted in creep memory, keep it reconstructible from explicit fields rather than opaque serialized objects
-- if you add persistent actor state, you must define restore behavior as well
-- migration work is logic-first, not backward-data-compatible by default
-- do not complicate new runtime code to preserve obsolete legacy memory shapes
-- prefer a correct, simple, optimized data shape for the new runtime over compatibility with old transient fields
+- `Actors.init()` always spawns `SYSTEM` and sends `Lifecycle.Bootstrap`.
+- `ActorSystem.tick()` attempts `ActorKernel.restore(Memory.actorKernelSnapshot)` after reset.
+- `ActorKernel.restore()` logs that actor rehydration is not implemented; it does not rebuild actor instances.
+- Child managers reconstruct live actors from `Game.rooms`, `Game.creeps`, and room spawns.
+- Snapshot writing is bookkeeping, not full runtime restoration.
 
-If you change persistence:
+Rules:
 
-- document the schema change
-- explain reset behavior
-- document any migration or reset expectation only when it is intentionally part of the new runtime design
+- Do not assume actor-local fields, mailboxes, sleepers, or pending continuations survive reset.
+- If you add persistent actor state, define schema, write path, read path, and reset behavior.
+- Keep persisted assignment state reconstructible from explicit fields.
+- Do not add compatibility branches for obsolete memory shapes unless the active runtime depends on them.
 
----
+## Build And Verification
 
-## Legacy boundary
+Gradle/Kotlin setup:
 
-Treat these as legacy migration material:
+- Kotlin Multiplatform JS
+- Kotlin version `2.3.10`
+- CommonJS output
+- Screeps Kotlin types dependency `io.github.exav:screeps-kotlin-types:2.2.0`
+- coroutines dependency `kotlinx-coroutines-core:1.10.2`
+- Closure Compiler dev npm dependency
 
-- `src/jsMain/kotlin/scheduler/`
-- `src/jsMain/kotlin/scheduler/events/`
-- `src/jsMain/kotlin/scheduler/missions/`
-- `src/jsMain/kotlin/creep/roles/`
-- `src/jsMain/kotlin/room/RoomContext.kt`
+Important tasks:
 
-Notes:
+- `./gradlew build`
+- `./gradlew optimize`
+- `./gradlew release`
+- `./gradlew deploy`
 
-- `EventScheduler` is not part of the live loop
-- old creep role functions are not the active per-tick path
-- `RoomContext` may still contain useful search or analysis helpers
-- `Root.room()` / `Root.rooms()` and `RoomContext` are legacy support surfaces, not authoritative runtime state
-- `spawn/Spawner.kt` is legacy code but still partially active through `SpawnActor`
+There are no test source files in this checkout at the time of this scan. Use `./gradlew build` as the basic
+verification path for source changes. For docs-only changes, use markdown/link sanity checks and `git diff --check`.
 
-Do not add new gameplay behavior to the old scheduler path unless explicitly asked for a legacy-only fix.
+`gradle.properties` is ignored and may contain Screeps credentials. Do not quote local token values in docs, logs,
+commits, or final responses.
 
----
+## Coding Rules
 
-## Migration rules
+- Prefer explicit Kotlin over clever abstractions.
+- Use `val` unless mutation is required.
+- Keep nullability meaningful.
+- Favor sealed protocols and enums where they clarify contracts.
+- Keep hot-path code allocation-aware.
+- Avoid noisy per-tick logs unless intentionally gated.
+- Include actor id, message id, and room/object context when logging protocol failures.
+- Keep direct Memory mutation localized and documented.
+- Preserve tick order unless an ordering change is intentional and documented.
 
-When moving behavior:
-
-1. find the invariant in legacy code
-2. decide which actor should own the decision
-3. express orchestration through actor commands, requests, or intents
-4. keep direct memory mutation localized and explicit
-5. preserve gameplay semantics unless redesign is explicitly requested
-
-Migration priorities:
-
-- preserve and improve the new runtime semantics, not legacy data compatibility
-- optimize for correctness, clear ownership, and low cognitive load in the new actor path
-- do not keep transitional fields, fallback decoders, or compatibility branches unless they are required by the active runtime
-
-Preferred ownership:
-
-- global orchestration -> `SystemActor`
-- global creep registry / creep-affiliation queries -> `SystemActor`
-- room-wide planning and shared resources -> `RoomActor`
-- spawn-side actions -> `SpawnActor`
-- creep-local state and cleanup -> `CreepActor`
-
-Do not revive `CreepExecutor` as the long-term solution.
-
----
-
-## Coding rules
-
-### General Kotlin rules
-
-- prefer explicit Kotlin over clever abstractions
-- keep hot-path code allocation-aware
-- use `val` unless mutation is required
-- keep nullability meaningful
-- favor sealed protocols and enums when they clarify contracts
-
-### Actor rules
-
-- each actor should own a narrow slice of behavior
-- message names should describe intent, not implementation detail
-- request/response pairs should stay type-specific
-- do not bypass actor boundaries unless there is a concrete cleanup or fallback need
-- keep tick order understandable
-
-### Legacy migration rules
-
-- do not copy old code blindly into actors
-- extract the invariant first, then re-express it in actor form
-- when old code and actor code overlap, prefer the actor path for new work
-
-### Logging rules
-
-- keep logs useful under Screeps CPU limits
-- avoid noisy per-tick logs in hot loops unless intentionally gated
-- include actor id, message id, and room/object context when debugging protocol failures
-
----
-
-## Performance
-
-This project runs under Screeps CPU constraints. Preserve these properties:
-
-- avoid unnecessary allocations in per-tick loops
-- avoid rebuilding collections if per-tick caching already exists
-- prefer bounded queue work over unstructured scans
-- do not hide expensive room or game queries behind pretty abstractions
-- preserve processing order unless an ordering change is intentional and documented
-
-When optimizing, explain:
-
-1. what path got cheaper
-2. why behavior stays the same
-3. whether tick ordering changed
-
----
-
-## Safe changes
+## Safe Changes
 
 Usually safe:
 
-- extending an existing actor protocol
-- moving one behavior into the correct actor
-- extracting small helpers inside a module
-- clarifying intent selection logic
-- improving cleanup and invariant checks
-- updating docs to match the actor migration
+- extending an existing protocol with a focused command or request
+- adding a new room intent with clear room ownership
+- adding a new assignment type with memory codec support and reset behavior
+- extracting small helpers inside an existing module
+- tightening cleanup or invariant checks
+- updating docs to match the actor runtime
 
 Usually unsafe:
 
-- re-enabling legacy scheduler execution as a shortcut
 - changing actor id conventions
-- changing lifecycle flow for `Bootstrap` / `Tick`
-- introducing hidden shared mutable state between actors
-- writing persistence without a restore story
-- broad package reshuffles during migration
+- moving creep ownership under rooms
+- changing `Bootstrap` or `Tick` flow
+- changing `ActorSystem.tick()` or `ActorKernel` scheduling order
+- adding hidden shared mutable state between actors
+- writing persistence without restore/reset semantics
+- adding spawn-side room policy to `SpawnActor`
 
-If unsure, do the smaller patch.
+If unsure, make the smaller actor-owned patch.
 
----
-
-## Build
-
-Current assumptions:
-
-- Kotlin Multiplatform is configured for JS
-- bundling uses the existing Gradle pipeline
-- important tasks include `build`, `optimize`, `release`, and `deploy`
-- Screeps upload format and artifact names should stay stable unless explicitly changed
-
-Do not add new build complexity without a concrete reason.
-
----
-
-## Documentation and communication
-
-When changing actor behavior or migrating legacy logic, document:
-
-- what changed
-- which actor now owns it
-- behavioral impact
-- persistence impact
-- performance impact
-- remaining migration work
-
-Update `AGENTS.md` or `docs/*` when architecture, invariants, migration assumptions, or runtime boundaries have changed enough that the existing documentation would mislead future work.
-
-If tests were not run or do not exist for that area, say so explicitly.
-
-Comments should explain why an invariant exists, especially around:
-
-- actor lifecycle
-- message ordering
-- mailbox scheduling
-- request failure semantics
-- semaphore recreation
-- cleanup on object disappearance
-
----
-
-## Stop and ask
+## Stop And Ask
 
 Stop for human review when the task requires:
 
 - redesigning the actor hierarchy
-- replacing persistence format
-- deciding between incompatible migration strategies
-- moving a large block of legacy room/creep logic without clear ownership
-- changing core scheduling or message-ordering semantics in `ActorSystem` or `ActorKernel`
+- replacing the persistence format
+- choosing between incompatible migration strategies
+- moving a large behavior block without clear ownership
+- changing core scheduling, mailbox ordering, or continuation semantics
+- deciding whether to preserve old memory data that the active runtime does not read
 
-You do not need to stop for small correctness fixes in `ActorKernel` if they preserve the existing scheduling model and message ordering.
+Small correctness fixes that preserve scheduling and ownership do not require a stop.
 
-If the request is ambiguous, preserve current actor-first execution and choose the least risky migration step.
+## Documentation Requirement
 
----
+When changing actor behavior, room planning, resource locks, or persistence, update docs with:
 
-## Final rule
+- what changed
+- which actor owns the behavior
+- protocol or memory schema impact
+- reset behavior impact
+- performance impact
+- remaining known gaps
 
-This repository is no longer centered on the old scheduler. Migrate behavior into the actor runtime without breaking Screeps semantics, and prefer a small actor-owned migration step over a shortcut through the legacy path.
+Final rule: preserve the actor-first runtime. Add behavior to the actor-owned path, keep runtime/domain boundaries
+clear, and document enough that the next agent can continue without rediscovering the architecture.

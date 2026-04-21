@@ -1,244 +1,268 @@
 # Actor Runtime
 
-## Overview
+Last source scan: 2026-04-21.
 
-This project is a Screeps bot. The current development focus is migrating from the old scheduler/role model to an actor-first runtime.
+This document describes the runtime in `src/jsMain/kotlin/actor/` and the base actor integration in
+`src/jsMain/kotlin/actors/`.
 
-The actor runtime is the live execution model:
+## Runtime Layers
 
-- `Main.loop()` -> `Root.gameLoop()`
-- `Root.onReset()` -> `actors.base.Actors.init()`
-- `Root.loop()` -> `actors.base.Actors.tick()`
+The code is split into two layers:
 
-The old scheduler and role code still exist, but they are migration source material rather than the authoritative runtime.
+- `actor/`: runtime infrastructure.
+- `actors/` and domain packages: game/business logic.
 
-This document explains why the current actor architecture is shaped the way it is. For operational rules and guardrails, see `AGENTS.md`.
+The boundary matters. `ActorKernel` is the runtime core and should stay free of Screeps room, spawn, and creep policy.
+Domain actors should communicate through `ActorBase`, `ActorApi`, `MessagingApi`, and `ActorSystem` facade methods
+rather than direct `ActorKernel` calls.
 
-## Layering
+## Entrypoint And Tick Flow
 
-The codebase is intentionally split into two layers:
+`Main.loop()` is exported to Screeps:
 
-- `src/jsMain/kotlin/actor/`
-  - runtime infrastructure
-  - scheduling, mailbox delivery, request/response continuation management, snapshot bookkeeping
-- `src/jsMain/kotlin/actors/`
-  - business logic
-  - room orchestration, spawn-side actions, creep-local behavior, resource coordination
+```kotlin
+@JsExport
+fun loop() {
+    Root.gameLoop()
+}
+```
 
-The main boundary between these layers is `ActorBase`.
+`Root.gameLoop()`:
 
-Why this boundary exists:
+1. Calls `onReset()` once after VM reset.
+2. Calls `preLoop()`.
+3. Calls `loop()`.
+4. Calls `postLoop()`.
+5. Sets `wasReset = false`.
 
-- business logic should not depend on runtime internals
-- runtime code should not accumulate domain-specific decisions
-- kernel changes are easier to reason about when `ActorKernel` stays a runtime core rather than becoming a shared utility surface
+On a reset tick, `onReset()` runs before the normal tick body. That means `Actors.init()` queues `Lifecycle.Bootstrap`,
+then `Actors.tick()` queues `Lifecycle.Tick`, then `ActorSystem.tick()` drains runtime work. Bootstrap is queued before
+Tick on that reset tick.
 
-`ActorKernel` is intentionally not a public business-logic API. Domain actors should interact with runtime services through `ActorBase` and `ActorSystem`.
+`Root.postLoop()` generates a pixel when `Game.cpu.bucket >= 10000`.
 
-## Ownership model
+## Actors.init And Actors.tick
 
-The active ownership model is:
+`actors.base.Actors` is the runtime entry helper:
 
-- `SystemActor`
-  - owns `RoomActor`
-  - owns `CreepActor`
-- `RoomActor`
-  - owns `SpawnActor`
-- `SpawnActor`
-  - executes spawn-side actions
-- `CreepActor`
-  - owns creep-local cleanup and request handling
+- `SYSTEM` is the constant actor id for the system actor.
+- `init()` spawns `SystemActor("SYSTEM")` and sends `Lifecycle.Bootstrap(Game.time)`.
+- `tick()` sends `Lifecycle.Tick(Game.time)` to `SYSTEM`, then calls `ActorSystem.tick()`.
 
-The key design choice is that `SystemActor` owns all `CreepActor`.
+`ActorSystem.spawn()` refuses duplicate ids and returns `null` when an actor already exists.
 
-Why:
+## Actor Coroutine Model
 
-- creep existence is global
-- a creep can move between rooms, including non-owned rooms and transit rooms
-- ownership should be stable across movement
-- room-level planning still needs access to creep counts without tying creep lifecycle to room position
+`Actor` is an abstract coroutine-backed runtime object:
 
-The earlier model where `RoomActor` owned creep actors based on room presence breaks down for:
+- `start()` resumes the actor's `run()` coroutine.
+- `run()` is implemented by subclasses or by `ActorBase`.
+- `receive<T>()` suspends until a mailbox message is delivered.
+- `nextTick(ticks)` suspends until `Game.time + ticks`.
+- `yieldNow()` schedules a continuation in the current tick.
+- `checkpoint()` yields to the next tick when the current tick is near CPU reserve.
 
-- remote hauling
-- scouting
-- claim/reserve flows
-- military creeps outside owned rooms
-- any cross-room logistics
+If `run()` returns or fails, the actor destroys itself and asks `ActorSystem` to remove the actor id. `destroy()` is
+idempotent and calls `onDestroy()` once.
 
-If a creep actor were owned by the room where the creep is currently standing, leaving that room could delete the actor even though the creep still exists and still matters to the bot.
+## Mailboxes
 
-## Affiliation model
+Each actor owns a mutable FIFO mailbox.
 
-The actor model separates creep ownership from creep affiliation.
+Message flow:
 
-Use these meanings consistently:
+1. `ActorSystem.send()` creates or receives a `Message`.
+2. `ActorKernel.queueActorMessage()` checks whether the payload is a response for a pending request.
+3. If it is not a pending response, the target actor's mailbox receives the message.
+4. If the target actor is sleeping in `receive()` and has mail, it is enqueued in the ready queue.
+5. `ActorKernel.deliverOneReadyActorMessage()` resumes one sleeping actor with one mailbox message.
 
-- `homeRoom`
-  - persistent room affiliation
-  - the room that should count the creep for long-lived room-level ownership and population planning
-- `assignment.roomName`
-  - persistent task-affiliation room stored inside assignment state
-  - useful when a creep works for another room without changing long-term ownership
-- `currentRoom`
-  - live room position from `Game.creeps[name].room.name`
+Only sleeping actors are placed in the ready queue. An actor that is still running will eventually call `receive()`
+again and then become eligible for delivery.
 
-Why this split exists:
+## Payload Types
 
-- `currentRoom` changes constantly and should not define actor ownership
-- `homeRoom` is stable enough for planning
-- `assignment.roomName` lets room-level logic reason about cross-room work without collapsing everything into physical position
+The runtime payload marker hierarchy is:
 
-This is why `currentRoom` is derived from `Game` rather than stored as authoritative memory state.
+- `Payload`
+- `Command : Payload`
+- `Request<T> : Payload`
+- `Response<T> : Payload`
 
-## Planning model
+`Message` contains:
 
-Room-wide decisions belong to `RoomActor`.
+- `messageId`
+- `from`
+- `payload`
 
-That includes:
+`BaseMessage` is the concrete message implementation.
 
-- room-level population targets
-- room semaphore sync
-- room resource coordination
-- room intents
-- the first live survival intent: `RoomIntent.EnsureControllerSurvival`
-- the steady-state workforce intent: `RoomIntent.PlanWorkforce`
+## ActorBase
 
-Spawn-side execution belongs to `SpawnActor`.
+`ActorBase<ObjectType, CommandType, RequestType, ResponseType>` is the main base class for domain actors.
 
-That means:
+It combines:
 
-- `RoomActor` decides whether another creep is needed
-- `SpawnActor` performs the spawn-side action
-- legacy `spawn/Spawner.kt` remains an execution helper for now
+- `Actor`
+- `ActorBinding<ObjectType>`
+- `ActorApi`
 
-Global creep counting belongs to `SystemActor`.
+Its `run()` loop:
 
-Current first vertical slice:
+1. Receives a message.
+2. Checks `isBound()`.
+3. Dispatches by payload type.
+4. Replies when `processRequest()` returns a response.
 
-- `RoomActor` plans controller survival
-- `RoomActor` also owns room workforce allocation across transfer, construction, and controller progress
-- `SystemActor` answers creep-affiliation queries
-- `SpawnActor` spawns a cheap survival worker when no suitable creep exists
-- `CreepActor` executes actor-owned worker assignments such as `CreepAssignment.ControllerUpkeep`, `CreepAssignment.ControllerProgress`, `CreepAssignment.Construction`, and `CreepAssignment.EnergyTransfer` on `Lifecycle.Tick`
-- source locks are held only during the harvest phase and are released before the creep switches to controller upgrading
+If the actor is no longer bound to a live Screeps object or room, `ActorBase.run()` returns. That causes normal actor
+teardown through the base `Actor` continuation.
 
-Why this split exists:
+Domain actors implement:
 
-- room-wide planning should stay in the room actor
-- counting creeps by room affiliation should not depend on physical room presence
-- spawn actors should not own room-wide policy
-- multiple spawns in one room should not each make their own policy decisions independently
+- `processLifecycle(Lifecycle)`
+- `processCommand(CommandType)`
+- `processRequest(RequestType)`
 
-This is why room population logic queries `SystemActor` rather than using `room.find(FIND_MY_CREEPS)` as the sole source of truth.
+`systemSend()` and `systemRequest()` route to actor id `SYSTEM`.
 
-## Resource coordination
+## Actor Bindings
 
-Room resource coordination is moving under actor ownership rather than ad hoc memory mutation.
+Actor bindings map actor ids to Screeps objects:
 
-Current design:
+- `NoBinding` for actors without a Screeps object, currently `SystemActor`.
+- `GameRoomBinding(name)` for `RoomActor`.
+- `GameObjectBinding(id)` for identified game objects such as spawns.
+- `GameCreepBinding(name)` for `CreepActor`.
 
-- `RoomActor` owns room semaphore state
-- room-side acquire and release go through room protocols
-- lock ownership is reconciled against actor/runtime existence rather than room-local creep presence
+Bindings use `lazyPerTick`, so object resolution is cached within a tick and refreshed on the next tick.
 
-Why:
+## ActorSystem.tick
 
-- resource coordination is a room-wide concern
-- room-level arbitration is easier to reason about than distributed writes
-- cleanup must remain correct even when creeps move between rooms or disappear
+`ActorSystem.tick(maxSteps = 100, cpuReserve = 3.0)` is the scheduler entrypoint.
 
-## Kernel semantics
+On a reset tick it attempts to restore `Memory.actorKernelSnapshot`:
 
-The runtime is cooperative and coroutine-based.
+- if a snapshot exists, it calls `ActorKernel.restore(snapshot)`
+- if no snapshot exists, it logs a warning
 
-`ActorKernel` is responsible for:
+Current restore behavior is intentionally incomplete. `ActorKernel.restore()` logs that actor rehydration is not
+implemented and does not recreate actors.
 
-- mailbox delivery
-- scheduling wakeups for next tick
-- scheduling request/response continuations
-- snapshot bookkeeping for runtime actor identity
+After restore handling, `ActorSystem.tick()`:
 
-Two semantics matter a lot:
+1. resets `MessageId`
+2. creates a `TickState`
+3. repeatedly runs scheduler rounds until stopped or idle
+4. writes `Memory.actorKernelSnapshot = ActorKernel.snapshot()`
 
-1. message ordering must stay understandable and deterministic
-2. request failure must be explicit
+Each scheduler round:
 
-Explicit request failure means:
+1. wakes actors whose `nextTick` target has arrived
+2. flushes one scheduled continuation
+3. delivers mailbox messages until no ready actor remains or the tick state stops
 
-- a request continuation must not hang forever
-- if the target actor disappears before responding, the requester must fail
+`TickState` stops when:
 
-This was an intentional fix because silent hangs are much harder to debug than explicit failures and they can wedge room orchestration.
+- delivered/flushed step count reaches `maxSteps`
+- remaining CPU is less than or equal to `cpuReserve`
 
-Kernel bugfixes that preserve scheduling and ordering are fine. Kernel redesigns that alter ordering or lifecycle semantics should be treated as a higher-risk change.
+## Message Ids
 
-## Persistence
+`MessageId.resetSeed()` runs at the start of each `ActorSystem.tick()`.
 
-Persistence is intentionally partial right now.
+New ids are formatted as:
 
-What is persisted:
+```text
+Game.time|seed
+```
 
-- `Memory.actorKernelSnapshot`
-- actor ids and actor type names
-- creep memory such as `homeRoom` and assignment-owned fields like `assignment.roomName`
-- explicit creep-assignment fields for actor-owned execution, such as assignment kind, target ids, and assignment phase
+When replying to a request, actors use the original `messageId`. This lets `ActorKernel` match the response to the
+pending continuation.
 
-What is not fully restored:
+## Request Response Semantics
 
-- actor instances
-- arbitrary actor-local state
-- mailbox state
-- sleeping continuations
-- pending request/response continuations
+`ActorSystem.request()`:
 
-So current persistence is runtime bookkeeping plus memory-backed domain state, not full actor restoration.
+1. checks that the target actor exists
+2. creates a message id
+3. stores a pending response continuation
+4. queues the request message to the target
+5. suspends the requester
 
-That is why any new persistent actor state needs both:
+Responses are normal messages whose payload implements `Response<*>`. Before queuing a response to a mailbox, the kernel
+checks whether the message id is pending. If so, it schedules the requester's continuation with the response result.
 
-- a schema story
-- a restore story
+Failure rules:
 
-without assuming snapshot writing alone is enough.
+- if the target actor does not exist before request queueing, `ActorRequestException` is thrown
+- if the target disappears while queueing, the pending continuation is failed
+- if the target actor is removed before responding, pending responses targeting it are failed
+- if the requester actor is removed, pending responses owned by that requester are dropped
+- scheduled continuations for removed actors are dropped
 
-Migration priority here is logic-first, not backward-data-compatibility-first.
+Current gap: if `ActorBase` catches an exception while processing a request, it logs the exception and continues without
+replying. That can leave the request continuation pending. New request handlers should be total, or the runtime should
+gain an explicit request error response path before request-heavy protocols are added.
 
-That means:
+These rules are important. Silent request hangs can wedge room planning.
 
-- new actor-owned behavior should optimize for correct runtime semantics
-- new memory shapes should optimize for clarity and low cognitive load
-- old transient memory layouts do not need compatibility support unless the active runtime still depends on them
-- migration code should not accumulate fallback decoding or legacy data branches just to preserve obsolete state
+## ActorKernel State
 
-## Migration strategy
+`ActorKernel` owns:
 
-When porting behavior from legacy code:
+- `actors`: actor id to actor instance
+- `readyActorIdsQueue`: FIFO ready queue
+- `readyActorIdsSet`: duplicate suppression for ready queue entries
+- `sleeping`: actor id to `receive()` continuation
+- `pendingWaiting`: request message id to pending response waiter
+- `scheduledContinuations`: FIFO continuation queue
+- `waitingNextTick`: actor id to wake tick and continuation
 
-1. identify the invariant first
-2. decide the correct owner actor
-3. re-express orchestration through commands, requests, or intents
-4. keep memory mutation explicit
-5. preserve gameplay semantics unless a redesign is intentional
+`ActorKernel.snapshot()` stores only actor id and actor type name. It does not store mailboxes, sleeping state,
+scheduled continuations, or actor-local fields.
 
-Typical mistakes to avoid:
+## Actor Removal
 
-- reattaching new behavior to the old scheduler path as a shortcut
-- deriving creep lifecycle from current room presence
-- letting spawn actors own room-wide population policy
-- treating `ActorKernel` as a business-logic utility
-- writing persistence without a restore story
+`ActorKernel.removeActor(actorId)`:
 
-## Practical reading guide
+- calls `destroy()` on the actor if present
+- removes ready queue bookkeeping
+- removes receive waiters
+- removes next-tick waiters
+- fails pending responses where the removed actor is the target
+- removes pending responses where the removed actor is the requester
+- removes the actor instance
 
-If you are trying to understand the live runtime, start here:
+Domain `onDestroy()` hooks should perform local cleanup only. They must not assume other actors still exist.
 
-1. `Root.kt`
-2. `actors/base/Actors.kt`
-3. `actor/ActorSystem.kt`
-4. `actor/ActorKernel.kt`
-5. `actors/SystemActor.kt`
-6. `actors/RoomActor.kt`
-7. `actors/SpawnActor.kt`
-8. `actors/CreepActor.kt`
+## Intent Runtime
 
-If you are trying to migrate legacy behavior, use the old scheduler and role code as source material, but keep the actor runtime as the authoritative execution model.
+`ActorIntentBase` extends `ActorBase` with a small intent queue:
+
+- intents are keyed by `intentId`
+- adding an intent with an existing id replaces the stored intent and keeps the entry
+- `processIntents(time)` processes up to `maxIntentsPerTick` entries, default `5`
+- selection prefers never-attempted intents, then higher score, then older attempt time
+- score is priority base weight plus aging every three ticks
+
+Intent result meanings:
+
+- `COMPLETED`: work is done; non-repeatable intents are removed
+- `DROPPED`: intent is abandoned; non-repeatable intents are removed
+- `RETAINED`: keep it for a later attempt
+
+`RoomIntent` currently uses repeatable intents, so completed room intents remain available for future ticks.
+
+## Runtime Change Rules
+
+Be careful with changes to:
+
+- mailbox ordering
+- scheduled continuation ordering
+- response matching
+- actor removal behavior
+- `Lifecycle.Bootstrap` and `Lifecycle.Tick` ordering
+- snapshot or restore semantics
+- `TickState` stop conditions
+
+If behavior changes intentionally, document the ordering and reset impact in this file and in `AGENTS.md`.
