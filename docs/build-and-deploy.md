@@ -201,7 +201,10 @@ uploaded as additional modules.
 
 ## Verification
 
-There are no test source files in this checkout at the time of this scan.
+Kotlin/JS profiling regression tests are in `src/jsTest/kotlin/utils/trace`. Run `./gradlew jsNodeTest` for these tests
+or `./gradlew build` for tests and the normal build. Tests use Node with a deterministic CPU clock; browser tests are
+disabled, and no live Screeps server is needed. The standalone Python console also has protocol tests; see
+[Screeps CLI](screeps-cli.md#verify).
 
 Use these checks by change type:
 

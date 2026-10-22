@@ -6,6 +6,7 @@ import actors.base.ActorApi
 import actors.base.ActorBinding
 import actors.base.Actors
 import actors.base.Lifecycle
+import kotlin.reflect.KClass
 
 abstract class ActorBase<
         ObjectType,
@@ -42,13 +43,13 @@ abstract class ActorBase<
 
         is Command -> {
             @Suppress("UNCHECKED_CAST")
-            processCommand((msg as CommandType))
+            processCommand(msg as CommandType)
             null
         }
 
         is Request<*> -> {
             @Suppress("UNCHECKED_CAST")
-            processRequest((msg as RequestType))
+            processRequest(msg as RequestType)
         }
 
         else -> {
@@ -66,4 +67,23 @@ abstract class ActorBase<
 
     override suspend fun <T> systemRequest(payload: Request<T>): T =
         requestFrom(actorId = Actors.SYSTEM, payload = payload)
+
+    protected suspend inline fun <reified C, T> cpuMark(noinline block: suspend () -> T): T =
+        cpuMark(C::class, block)
+
+    protected suspend fun <T> cpuMark(type: KClass<*>, block: suspend () -> T): T {
+        val label = type.simpleName ?: "Unknown"
+        // Mailbox delivery already opens the message type scope.
+        if (profiler.isMessageScope(label)) return block()
+        return cpuMark(label, block)
+    }
+
+    protected suspend fun <T> cpuMark(label: String, block: suspend () -> T): T {
+        profiler.push(label)
+        return try {
+            block()
+        } finally {
+            profiler.pop()
+        }
+    }
 }

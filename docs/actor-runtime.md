@@ -253,6 +253,40 @@ Intent result meanings:
 
 `RoomIntent` currently uses repeatable intents, so completed room intents remain available for future ticks.
 
+## CPU Profiling
+
+`ActorKernel` measures actor execution slices around mailbox delivery and scheduled continuation resumption.
+`ActorBase.cpuMark(label) { ... }` adds nested scopes to the actor's profiling context, including across suspension.
+Only execution slices contribute CPU; time spent waiting for a response or a later tick is excluded.
+
+Scopes can also use `cpuMark(SomeCommand::class) { ... }` or the reified `cpuMark<SomeCommand, ResultType> { ... }`
+overload. Both derive the label from the class. When already at the matching mailbox message's base scope, the typed
+overload reuses that scope instead of adding a duplicate type node. Scopes nested inside another operation remain
+distinct. `RoomActor` wraps command dispatch once in `processCommand`; lifecycle handlers call it without extra marks.
+Intent execution is marked separately by `ActorIntentBase`, while explicit operation labels such as `Broadcast` remain
+available. This reduces redundant scopes and CPU clock reads without changing execution order or game behavior.
+
+`CpuTrace` keeps the logical label stack separately from cached report node ids. Each `CpuLogger.init()` clears the
+report tree and advances its generation. When a suspended operation resumes in a new generation, its active path is
+rebuilt before recording CPU. Resuming again within the same generation reuses the node ids. Report node ordering can
+change between ticks without changing attribution.
+
+The stack buffers are reused and grow only when nesting requires it. Inactive scopes do not read the CPU clock; tree
+nodes are resolved when execution begins. The collector retains no historical actor nodes after a report reset.
+The context is transient and does not survive a VM reset. No actor protocol, Memory schema, scheduler ordering, or
+request continuation behavior is changed by profiling.
+
+Known limitations: scheduler marks still include actor execution measured separately under actor roots, so these roots
+must not be summed as disjoint CPU costs. Instrumentation itself has overhead, the print filter does not limit
+collection,
+and global `CpuLogger.mark` scopes are synchronous and must not span ticks. Use actor `cpuMark` for suspending work.
+
+`src/jsTest/kotlin/utils/trace/CpuTraceTest.kt` checks exclusive nested attribution, suspension gaps, tree resets with
+different node ordering, multiple skipped ticks, message replacement, inactive scopes, and deep nesting. Run these
+deterministic Kotlin/JS tests with `./gradlew jsNodeTest`; they are also included in `./gradlew build`.
+`src/jsTest/kotlin/actors/ActorProfilingTest.kt` checks typed scope reuse for mailbox messages, scopes for commands
+called from lifecycle handlers, return values, and stack cleanup after handler failures.
+
 ## Runtime Change Rules
 
 Be careful with changes to:

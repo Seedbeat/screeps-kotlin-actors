@@ -10,10 +10,10 @@ import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import memory.actorKernelSnapshot
 import screeps.api.Memory
-import utils.CpuLogger
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
+import utils.trace.CpuLogger
 
 object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
     private val selfMarkId = this::class.simpleName!!

@@ -169,12 +169,18 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
             log.info("[Tick] Flush scheduled continuation (scheduled=${scheduledContinuations.size - 1})")
             val scheduled = scheduledContinuations.removeFirst()
 
-            if (scheduled.actorId != null && !actors.containsKey(scheduled.actorId)) {
+            val actor = actors[scheduled.actorId] ?: if (scheduled.actorId != null) {
                 log.info("[Tick] Drop scheduled continuation for removed actor '${scheduled.actorId}'")
+                continue
+            } else {
+                log.error("[Tick] Drop scheduled continuation due to actorId is null")
                 continue
             }
 
-            scheduled.action.invoke()
+            val profiler = actor.profiler
+            measureActorSlice(profiler) {
+                scheduled.action.invoke()
+            }
             return true
         }
 
@@ -196,7 +202,13 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
                 log.info("[${message.messageId}] Drop mailbox message for inactive continuation of actor '$actorId'")
                 continue
             }
-            continuation.resume(message)
+
+            val profiler = actor.profiler
+            profiler.beginMessage(message.payload)
+            measureActorSlice(profiler) {
+                continuation.resume(message)
+            }
+
             return true
         }
 
@@ -230,6 +242,16 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
 
     private fun scheduleContinuation(actorId: String? = null, action: () -> Unit) {
         scheduledContinuations.addLast(ScheduledContinuation(actorId, action))
+    }
+
+    private inline fun measureActorSlice(profiler: ActorProfilingContext, action: () -> Unit) {
+        val start = Game.cpu.getUsed()
+        profiler.onSliceStart(start)
+        try {
+            action()
+        } finally {
+            profiler.onSliceEnd(Game.cpu.getUsed())
+        }
     }
 
     private fun enqueueReadyActor(actor: Actor) {

@@ -58,6 +58,8 @@ kotlin {
         binaries.executable()
         useCommonJs()
 
+        nodejs()
+
         if (isBundleDebug) {
             compilations.all {
                 compileTaskProvider.configure {
@@ -67,6 +69,10 @@ kotlin {
         }
 
         browser {
+            // Runtime unit tests use Node and a deterministic CPU clock, without a browser or Screeps server.
+            testTask {
+                enabled = false
+            }
             commonWebpackConfig {
                 output?.globalObject = "this"
                 outputPath = bundledJsDirectory.asFile
@@ -87,6 +93,11 @@ kotlin {
                 implementation("io.github.exav:screeps-kotlin-types:2.2.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
                 implementation(devNpm("google-closure-compiler", "20250701.0.0"))
+            }
+        }
+        jsTest {
+            dependencies {
+                implementation(kotlin("test"))
             }
         }
     }

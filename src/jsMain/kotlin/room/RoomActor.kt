@@ -49,30 +49,38 @@ class RoomActor(
             }
 
             // Should be last
-            broadcast(this, msg)
+            cpuMark(::broadcast.name) { broadcast(this, msg) }
         }
 
         is Lifecycle.Tick -> {
             log.info("Room $id tick")
             processCommand(RoomCommand.Scan)
-            msg.onEach(STAGE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncStage) }
-            msg.onEach(PLANNING_CACHE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncPlanningCache) }
-            msg.onEach(SEMAPHORE_SYNC_INTERVAL) { processCommand(RoomCommand.SyncSemaphores) }
+            msg.onEach(STAGE_SYNC_INTERVAL) {
+                processCommand(RoomCommand.SyncStage)
+            }
+            msg.onEach(PLANNING_CACHE_SYNC_INTERVAL) {
+                processCommand(RoomCommand.SyncPlanningCache)
+            }
+            msg.onEach(SEMAPHORE_SYNC_INTERVAL) {
+                processCommand(RoomCommand.SyncSemaphores)
+            }
 
             processIntents(msg.time)
 
             // Should be last
-            broadcast(this, msg)
+            cpuMark(::broadcast.name) { broadcast(this, msg) }
         }
     }
 
-    override suspend fun processCommand(msg: RoomCommand) = when (msg) {
-        is RoomCommand.Scan -> scanRoom()
-        is RoomCommand.SyncStage -> syncStage()
-        is RoomCommand.SyncPlanningCache -> syncPlanningCache()
-        is RoomCommand.SyncSemaphores -> semaphoreService.syncSemaphores()
+    override suspend fun processCommand(msg: RoomCommand) = cpuMark(msg::class) {
+        when (msg) {
+            is RoomCommand.Scan -> scanRoom()
+            is RoomCommand.SyncStage -> syncStage()
+            is RoomCommand.SyncPlanningCache -> syncPlanningCache()
+            is RoomCommand.SyncSemaphores -> semaphoreService.syncSemaphores()
 
-        is RoomIntent -> addIntent(msg)
+            is RoomIntent -> addIntent(msg)
+        }
     }
 
     override suspend fun processRequest(msg: RoomRequest<*>): RoomResponse<*> = when (msg) {

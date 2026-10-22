@@ -246,8 +246,9 @@ Important tasks:
 - `./gradlew deploy`
 - `./gradlew deploy-local`
 
-There are no test source files in this checkout at the time of this scan. Use `./gradlew build` as the basic
-verification path for source changes. For docs-only changes, use markdown/link sanity checks and `git diff --check`.
+Kotlin/JS profiling regression tests are in `src/jsTest`; run `./gradlew jsNodeTest` for them. Use `./gradlew build`
+as the basic verification path for source changes (including Node tests). For docs-only changes, use markdown/link
+sanity checks and `git diff --check`.
 
 `gradle.properties` is ignored and may contain Screeps credentials. Do not quote local token values in docs, logs,
 commits, or final responses.

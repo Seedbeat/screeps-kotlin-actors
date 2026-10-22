@@ -70,7 +70,7 @@ Current important gaps:
 - actor snapshot restore does not rehydrate actor instances
 - actor mailboxes, sleepers, and pending request continuations do not survive reset
 - `SpawnRequest` and `CreepRequest` have no implemented handlers
-- there are no test source files in this checkout
+- Kotlin tests currently cover CPU profiling only; the Python CLI has protocol tests in `tools/tests`
 - room planning currently covers early workforce behavior, not full Screeps empire management
 
 ## Source Map

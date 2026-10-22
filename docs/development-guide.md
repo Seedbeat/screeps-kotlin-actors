@@ -151,7 +151,7 @@ Known gaps at scan time:
 - request handler exceptions in `ActorBase` are logged but do not currently fail pending request continuations.
 - `SpawnActor.processRequest()` is `TODO()`.
 - `CreepActor.processRequest()` is `TODO()`.
-- no test sources exist.
+- Kotlin tests currently cover CPU profiling only (`src/jsTest`); Python CLI protocol tests are in `tools/tests`.
 - `RoomStagePlanner` only calculates stages 1 through 4.
 - `RoomResourceType` only supports `SOURCE`.
 - combat, defense, remote mining, hauling, claiming, market, labs, towers, and construction placement are not

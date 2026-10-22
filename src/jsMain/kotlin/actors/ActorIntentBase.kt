@@ -33,24 +33,28 @@ abstract class ActorIntentBase<
     }
 
     protected suspend fun processIntents(time: Int) {
-        var processed = 0
-        while (processed < maxIntentsPerTick) {
-            val entry = selectNextIntent(time) ?: break
-            entry.lastAttemptedTick = time
+        cpuMark(::processIntents.name) {
+            var processed = 0
+            while (processed < maxIntentsPerTick) {
+                val entry = selectNextIntent(time) ?: break
+                entry.lastAttemptedTick = time
 
-            when (executeIntent(entry.intent, time)) {
-                IntentResultType.COMPLETED,
-                IntentResultType.DROPPED -> {
-                    if (!entry.intent.repeatable) {
-                        intents.remove(entry.intent.intentId)
-                        log.info("Processed intent ${entry.intent}")
+                cpuMark(entry.intent::class) {
+                    when (executeIntent(entry.intent, time)) {
+                        IntentResultType.COMPLETED,
+                        IntentResultType.DROPPED -> {
+                            if (!entry.intent.repeatable) {
+                                intents.remove(entry.intent.intentId)
+                                log.info("Processed intent ${entry.intent}")
+                            }
+                        }
+
+                        IntentResultType.RETAINED -> Unit
                     }
                 }
 
-                IntentResultType.RETAINED -> Unit
+                processed++
             }
-
-            processed++
         }
     }
 

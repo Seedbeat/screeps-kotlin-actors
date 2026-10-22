@@ -1,9 +1,9 @@
 import actors.base.Actors
 import screeps.api.Game
-import utils.CpuLogger
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
+import utils.trace.CpuLogger
 
 object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 

@@ -13,6 +13,7 @@ import kotlin.coroutines.resume
 
 abstract class Actor(override val id: String) : MessagingApi, ILogging {
     private var isDestroyed = false
+    internal val profiler = ActorProfilingContext(id)
 
     private val continuation: Continuation<Unit> = ::run.createCoroutine(object : Continuation<Unit> {
         override val context = EmptyCoroutineContext
