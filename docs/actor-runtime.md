@@ -259,11 +259,29 @@ Intent result meanings:
 `ActorBase.cpuMark(label) { ... }` adds nested scopes to the actor's profiling context, including across suspension.
 Only execution slices contribute CPU; time spent waiting for a response or a later tick is excluded.
 
-`CpuLogger.isEnabled` is a compile-time switch. Inline `cpuMark` and `CpuLogger.mark` wrappers return directly to the
-work block when disabled, before computing label names or touching profiling stacks. The kernel bypasses profiling
-CPU samples for both mailbox delivery and continuation resumption. Profiling context entry points are also guarded,
-and disabled contexts do not allocate a `CpuTrace`. `CpuLogger.init()` does not reset a report when disabled.
+`CpuLogger.isEnabled` is a runtime switch, defaulting to `true` after a VM reset. `Root.onReset()` installs a small
+JavaScript facade through `utils.console.SystemConsole`: read `system.profiling` or assign a Boolean to change the
+flag. `CpuLogger` owns this transient setting; no actor protocol or Memory schema is involved, and the flag does not
+survive a VM reset. See [console commands](screeps-cli.md#runtime-controls).
+
+The same facade exposes `system.profileFilter` as a copied JS array of path labels. Assigning a string array selects
+the printed subtree; `*` matches one level, and `null` or `[]` clears the filter. Ancestors and matching descendants
+are shown, with ancestor totals still including hidden work. `CpuLogger` owns this VM-local print setting, which
+defaults to an empty path after reset. Changing it preserves the current report, profiling session, and continuations.
+Filtering skips formatting and console output for hidden rows; CPU collection and full-tree total aggregation remain
+unchanged, and selecting visible nodes requires an additional tree traversal. Other gameplay logs are unaffected.
+
+Inline `cpuMark` and `CpuLogger.mark` wrappers return directly to the work block when disabled, before computing label
+names or touching profiling stacks. The kernel bypasses profiling CPU samples for mailbox delivery and continuation
+resumption. A `CpuTrace` is allocated lazily for the first profiled message. `CpuLogger.init()` does not reset a report
+when disabled. Runtime flag/session checks remain; instrumentation can no longer be removed using constant folding.
 Normal CPU-budget checks and the explicit `CpuLogger.total()` summary remain active independently of profiling.
+
+Changing the flag clears the current report and synchronous marks, and advances the profiling session. Suspended
+handlers from an older session continue executing normally but are excluded from the new profile, including their
+remaining nested scopes. Each newly delivered message joins the current enabled session. This prevents stale stacks
+and CPU samples when disabling and re-enabling profiling between continuations. Assigning the existing value leaves
+the report and session unchanged. Scheduling, message delivery, and request continuation ordering are unchanged.
 
 The `CpuTrace` accounting engine itself does not depend on that flag: its deterministic unit tests run even when
 production profiling is disabled. Actor integration tests follow the configured mode, checking CPU attribution when

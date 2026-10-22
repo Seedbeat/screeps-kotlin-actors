@@ -42,6 +42,12 @@ Additional modes:
 `--check` verifies HTTP authentication and the WebSocket subscription, then exits without sending game commands.
 `--logs-only` follows the stream without a command prompt, including when output is redirected to a file.
 
+The interactive log panel omits the emoji presentation selector U+FE0F (for example, `🛠️` is displayed as `🛠`).
+This avoids a `prompt_toolkit` width mismatch that otherwise shifts CPU values during partial redraws. Only the log
+panel's display text is normalized; received lines, command input, `run` results, and `--logs-only` output retain their
+original characters. Use `run "Object.keys(Game.creeps)"` or `--logs-only` when copying exact creep names containing
+presentation selectors. This CLI adjustment does not require deploying the bot.
+
 ## Run One Command
 
 Execute a JavaScript expression, print its result, and exit:
@@ -73,6 +79,52 @@ rendered as `[Circular]`. The wrapper counts towards the server's console-expres
 timeouts apply separately. A paused server must resume ticking to evaluate the command. A timeout or dropped result
 does not resend the command, because its side effects may already have happened. `run` cannot be combined with
 `--check` or `--logs-only`.
+
+## Runtime Controls
+
+After deploying a bundle with the console facade and running its first loop, the bot exposes `system.profiling`:
+
+```powershell
+.\screeps-cli run "system.profiling"
+.\screeps-cli run "system.profiling = false"
+.\screeps-cli run "system.profiling = true"
+```
+
+The property reads and changes the live `CpuLogger` flag without rebuilding. Only JavaScript Booleans are accepted;
+strings such as `"false"`, numbers, and null are rejected. The setting is VM-local, defaults to `true`, and is not
+written to Memory. A VM reset restores the default and reinstalls the facade. The CLI itself is unchanged.
+
+Each actual change starts a fresh profiling session and clears the current report. In-flight handlers from the previous
+session still execute but are not included after re-enabling; profiling resumes for newly delivered messages. Repeating
+the same value has no effect on the current session. CPU-budget enforcement and the Root CPU summary are independent
+of this setting. See [CPU profiling](actor-runtime.md#cpu-profiling) for attribution and performance limits.
+
+`system.profileFilter` selects the printed CPU subtree using a path of labels from the report root:
+
+```powershell
+.\screeps-cli run "system.profileFilter"
+.\screeps-cli run "system.profileFilter = ['W6N2']"
+.\screeps-cli run "system.profileFilter = ['*', 'Lifecycle', 'Tick', 'processIntents']"
+.\screeps-cli run "system.profileFilter = null"
+```
+
+Paths match from the root; `*` matches exactly one label. The matching node, its descendants, and the ancestors needed
+to show its location are printed. Unmatched siblings and roots are hidden. An unmatched path prints no CPU tree.
+Ancestor totals still include hidden branches. Only tree output is filtered: collection, aggregation, gameplay logs,
+and the Root CPU summary are unchanged.
+
+Assign an array of strings, or use `null` / `[]` for the full report. The getter returns a copy, so assigning a new
+array
+is required to change the filter; mutating a returned array has no effect. Invalid assignments leave the previous filter
+unchanged. The filter does not reset the current profiling session or enable profiling. It remains configured across
+ticks and profiling toggles, and resets to `[]` after a VM reset without writing Memory.
+
+Console bindings are declared in `utils/console/SystemConsole.kt` through `ConsoleNamespace.install("system")`.
+Each `property` supplies a name, a `ConsoleType`, and explicit get/set handlers. `ConsoleNamespace` installs actual
+JavaScript accessors with `Object.defineProperties`; `ConsoleType` validates the entire input before invoking a setter
+and includes the property's full path in errors. Add new settings as bindings and reuse or extend the input types;
+keep their state and side effects in the owning service. Descriptor construction runs only when installing the facade.
+This layer does not persist settings or dispatch actor messages automatically.
 
 ## Connection Settings
 

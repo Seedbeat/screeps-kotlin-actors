@@ -43,6 +43,9 @@ Keep these files current when behavior or ownership changes enough that another 
 - `src/jsMain/kotlin/room/context/`: cached room find helpers
 - `src/jsMain/kotlin/store/`, `map/`, `heuristics/`, `utils/`: shared helpers
 - `src/Constants.js`: Screeps constants shim used by the JS build
+- `src/jsMain/kotlin/utils/console/SystemConsole.kt`: VM-local `system.profiling` and `system.profileFilter` console
+  controls, installed on reset. Defaults are `true` and `[]`; neither writes Memory. Profiling changes start a new
+  profiling session; the path filter affects only CPU tree output and preserves the current session.
 - `tools/capture_logs.py`, `tools/analyze_logs.py`: bounded live log capture and offline CPU reports; see
   `docs/screeps-cli.md` for usage. Store generated logs/reports under ignored `build/performance`.
 

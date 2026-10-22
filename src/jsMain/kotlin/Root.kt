@@ -1,5 +1,6 @@
 import actors.base.Actors
 import screeps.api.Game
+import utils.console.SystemConsole
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
@@ -26,6 +27,7 @@ object Root : ILogging by Logging<Root>(LogLevel.DEBUG) {
 
     fun onReset() {
         log.warn("RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET RESET")
+        SystemConsole.install()
         Actors.init()
     }
 

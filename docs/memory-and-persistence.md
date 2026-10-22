@@ -25,6 +25,8 @@ What does not persist:
 - `nextTick()` continuations
 - pending request/response continuations
 - scheduled continuations
+- the runtime profiling flag, profiling sessions, and print filter (`system.profiling` defaults to `true` and
+  `system.profileFilter` to `[]` after VM reset)
 
 On reset, live actors are reconstructed from Screeps game state by child managers after `SystemActor` is spawned.
 

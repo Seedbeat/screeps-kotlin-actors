@@ -8,7 +8,6 @@ import screeps.api.Game
 import utils.log.ILogging
 import utils.log.LogLevel
 import utils.log.Logging
-import utils.trace.CpuLogger
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -246,7 +245,7 @@ object ActorKernel : ILogging by Logging<ActorKernel>(LogLevel.WARN) {
     }
 
     private inline fun measureActorSlice(profiler: ActorProfilingContext, action: () -> Unit) {
-        if (!CpuLogger.isEnabled) {
+        if (!profiler.isActive) {
             action()
             return
         }

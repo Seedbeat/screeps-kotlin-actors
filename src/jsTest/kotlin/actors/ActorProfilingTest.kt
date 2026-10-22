@@ -30,8 +30,10 @@ class ActorProfilingTest {
         var handledCommands = 0
 
         override suspend fun processCommand(msg: Command) {
-            yieldNow()
-            handledCommands++
+            cpuMark("Waiting") {
+                yieldNow()
+                handledCommands++
+            }
         }
         override suspend fun processRequest(msg: Request<*>): Response<*> = error("Not used in profiling tests")
 
@@ -117,27 +119,72 @@ class ActorProfilingTest {
     }
 
     @Test
-    fun mailboxAndScheduledContinuationRunWithoutProfilingClockReadsWhenDisabled() = withFixture { f ->
+    fun mailboxAndScheduledContinuationRunWithoutProfilingClockReadsWhenDisabled() {
+        for (enabled in listOf(false, true)) {
+            withFixture(enabled) { f ->
+                ActorSystem.spawn(f.actor.id) { f.actor }
+                try {
+                    ActorSystem.send(f.actor.id, "test", RoomCommand.Scan)
+                    assertTrue(ActorKernel.deliverOneReadyActorMessage())
+                    assertEquals(0, f.actor.handledCommands)
+                    assertTrue(ActorKernel.flushScheduledContinuations())
+                    assertEquals(1, f.actor.handledCommands)
+                    if (enabled) {
+                        assertTrue(f.clockReads > 0)
+                    } else {
+                        assertEquals(0, f.clockReads, "Disabled kernel profiling must not sample the CPU clock")
+                    }
+                } finally {
+                    ActorSystem.remove(f.actor.id)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun contextCreatedWhileDisabledCanProfileNewMessagesAfterEnabling() = withFixture(false) { f ->
+        CpuLogger.setProfilingEnabled(true)
+        f.actor.profiler.beginMessage(Lifecycle.Tick(1))
+        f.actor.profiler.onSliceStart(0.0)
+        runImmediately { f.actor.markByType { f.now = 2.0 } }
+        f.actor.profiler.onSliceEnd(2.0)
+
+        f.assertCpu(2.0, "room", "Lifecycle", "Tick", "Scan")
+    }
+
+    @Test
+    fun switchingProfilingSessionsDiscardsSuspendedScopesAndPreservesExecution() = withFixture { f ->
         ActorSystem.spawn(f.actor.id) { f.actor }
         try {
             ActorSystem.send(f.actor.id, "test", RoomCommand.Scan)
             assertTrue(ActorKernel.deliverOneReadyActorMessage())
-            assertEquals(0, f.actor.handledCommands)
+            val clockReads = f.clockReads
+
+            CpuLogger.setProfilingEnabled(false)
+            CpuLogger.setProfilingEnabled(true)
+            f.now = 5.0
             assertTrue(ActorKernel.flushScheduledContinuations())
             assertEquals(1, f.actor.handledCommands)
-            if (CpuLogger.isEnabled) {
-                assertTrue(f.clockReads > 0)
-            } else {
-                assertEquals(0, f.clockReads, "Disabled kernel profiling must not sample the CPU clock")
-            }
+            assertEquals(clockReads, f.clockReads, "Old sessions must not record continuation CPU")
+            assertTrue(!f.actor.profiler.isActive)
+
+            ActorSystem.send(f.actor.id, "test", SystemCommand.Noop)
+            assertTrue(ActorKernel.deliverOneReadyActorMessage())
+            f.now = 6.0
+            assertTrue(ActorKernel.flushScheduledContinuations())
+            assertEquals(2, f.actor.handledCommands)
+            assertTrue(f.clockReads > clockReads)
+            assertTrue(f.actor.profiler.isMessageScope("Noop"), "The new message must close its nested scope")
         } finally {
             ActorSystem.remove(f.actor.id)
         }
     }
 
-    private fun withFixture(block: (Fixture) -> Unit) {
+    private fun withFixture(enabled: Boolean = true, block: (Fixture) -> Unit) {
         val globals = js("globalThis")
         val previousGame = globals.Game
+        val previousEnabled = CpuLogger.isEnabled
+        CpuLogger.setProfilingEnabled(enabled)
         val f = Fixture()
         val game = js("({time: 1, cpu: {}})")
         game.cpu.getUsed = {
@@ -150,6 +197,7 @@ class ActorProfilingTest {
             block(f)
         } finally {
             globals.Game = previousGame
+            CpuLogger.setProfilingEnabled(previousEnabled)
             CpuLogger.init()
         }
     }

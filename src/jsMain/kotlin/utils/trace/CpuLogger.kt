@@ -6,13 +6,24 @@ import kotlin.reflect.KFunction
 
 object CpuLogger {
     @PublishedApi
-    internal const val isEnabled = true
+    internal var isEnabled = true
+        private set
+    internal var session = 0
+        private set
     private const val accuracy = 2
     internal const val NO_NODE = -1
 
     internal val tree = CpuTraceTree(accuracy)
     private val activeMarks = ArrayDeque<ActiveCpuMark>()
     private var printFilter = CpuTraceFilter.Empty
+
+    internal fun setProfilingEnabled(enabled: Boolean) {
+        if (isEnabled == enabled) return
+        isEnabled = enabled
+        session++
+        tree.clear()
+        activeMarks.clear()
+    }
 
     fun init() {
         if (!isEnabled) return
@@ -35,6 +46,8 @@ object CpuLogger {
     fun clearPrintFilter() {
         printFilter = CpuTraceFilter.Empty
     }
+
+    internal fun printFilterPath(): Array<String> = printFilter.path.toTypedArray()
 
     fun currentMarkId(): String? = if (isEnabled) activeMarks.lastOrNull()?.key else null
 
