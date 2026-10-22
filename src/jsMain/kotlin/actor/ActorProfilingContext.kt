@@ -4,33 +4,43 @@ import actor.message.Command
 import actor.message.Payload
 import actor.message.Request
 import actors.base.Lifecycle
+import utils.trace.CpuLogger
 import utils.trace.CpuTrace
 
 class ActorProfilingContext(
     private val actorId: String
 ) {
-    private val trace = CpuTrace()
+    private val trace = if (CpuLogger.isEnabled) CpuTrace() else null
 
     fun beginMessage(payload: Payload) {
-        trace.begin(actorId, payloadCategory(payload), payloadType(payload))
+        if (!CpuLogger.isEnabled) return
+        trace!!.begin(actorId, payloadCategory(payload), payloadType(payload))
     }
 
     fun push(label: String) {
-        trace.push(label)
+        if (!CpuLogger.isEnabled) return
+        trace!!.push(label)
     }
 
-    internal fun isMessageScope(label: String): Boolean = trace.isMessageScope(label)
+    @PublishedApi
+    internal fun isMessageScope(label: String): Boolean {
+        if (!CpuLogger.isEnabled) return false
+        return trace!!.isMessageScope(label)
+    }
 
     fun pop() {
-        trace.pop()
+        if (!CpuLogger.isEnabled) return
+        trace!!.pop()
     }
 
     fun onSliceStart(now: Double) {
-        trace.onSliceStart(now)
+        if (!CpuLogger.isEnabled) return
+        trace!!.onSliceStart(now)
     }
 
     fun onSliceEnd(now: Double) {
-        trace.onSliceEnd(now)
+        if (!CpuLogger.isEnabled) return
+        trace!!.onSliceEnd(now)
     }
 
     private fun payloadCategory(payload: Payload): String = when (payload) {

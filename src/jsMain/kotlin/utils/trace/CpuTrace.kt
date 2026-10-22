@@ -45,7 +45,6 @@ class CpuTrace internal constructor(
     }
 
     fun onSliceStart(now: Double) {
-        if (!CpuLogger.isEnabled) return
         resolveNodes()
         lastCpuSample = now
     }

@@ -1,5 +1,7 @@
 package actors
 
+import actor.ActorKernel
+import actor.ActorSystem
 import actor.message.Command
 import actor.message.Request
 import actor.message.Response
@@ -8,6 +10,7 @@ import actors.base.Lifecycle
 import actors.base.NoBinding
 import room.RoomCommand
 import utils.log.ILogging
+import utils.log.LogLevel
 import utils.log.Logging
 import utils.trace.CpuLogger
 import kotlin.coroutines.Continuation
@@ -22,12 +25,18 @@ class ActorProfilingTest {
     private class ProfilingActor :
         ActorBase<Unit, Command, Request<*>, Response<*>>("room"),
         ActorBinding<Unit> by NoBinding,
-        ILogging by Logging("ProfilingTest") {
+        ILogging by Logging("ProfilingTest", LogLevel.ERROR) {
 
-        override suspend fun processCommand(msg: Command) = Unit
+        var handledCommands = 0
+
+        override suspend fun processCommand(msg: Command) {
+            yieldNow()
+            handledCommands++
+        }
         override suspend fun processRequest(msg: Request<*>): Response<*> = error("Not used in profiling tests")
 
         suspend fun <T> markByClass(block: suspend () -> T): T = cpuMark(RoomCommand.Scan::class, block)
+        suspend fun <T> markByPayload(block: suspend () -> T): T = cpuMark(RoomCommand.Scan, block)
         suspend fun <T> markByType(block: suspend () -> T): T = cpuMark<RoomCommand.Scan, T>(block)
         suspend fun markNamed(block: suspend () -> Unit) = cpuMark("Prepare", block)
     }
@@ -35,6 +44,7 @@ class ActorProfilingTest {
     private class Fixture {
         val actor = ProfilingActor()
         var now = 0.0
+        var clockReads = 0
 
         fun cpu(vararg path: String): Double {
             var parentId: Int? = null
@@ -43,6 +53,11 @@ class ActorProfilingTest {
             }
             return CpuLogger.tree.selfCpu(requireNotNull(parentId))
         }
+
+        fun assertCpu(expectedWhenEnabled: Double, vararg path: String) {
+            val expected = if (CpuLogger.isEnabled) expectedWhenEnabled else 0.0
+            assertEquals(expected, cpu(*path))
+        }
     }
 
     @Test
@@ -50,12 +65,12 @@ class ActorProfilingTest {
         f.actor.profiler.beginMessage(RoomCommand.Scan)
         f.actor.profiler.onSliceStart(0.0)
         runImmediately {
-            f.actor.markByClass { f.now = 3.0 }
+            f.actor.markByPayload { f.now = 3.0 }
         }
         f.actor.profiler.onSliceEnd(3.0)
 
-        assertEquals(3.0, f.cpu("room", "Command", "Scan"))
-        assertEquals(0.0, f.cpu("room", "Command", "Scan", "Scan"))
+        f.assertCpu(3.0, "room", "Command", "Scan")
+        f.assertCpu(0.0, "room", "Command", "Scan", "Scan")
     }
 
     @Test
@@ -71,9 +86,14 @@ class ActorProfilingTest {
         }
         f.actor.profiler.onSliceEnd(2.0)
 
-        assertEquals(0.0, f.cpu("room", "Lifecycle", "Tick"))
-        assertEquals(2.0, f.cpu("room", "Lifecycle", "Tick", "Scan"))
-        assertEquals(0.0, f.cpu("room", "Lifecycle", "Tick", "Scan", "Run"))
+        f.assertCpu(0.0, "room", "Lifecycle", "Tick")
+        f.assertCpu(2.0, "room", "Lifecycle", "Tick", "Scan")
+        f.assertCpu(0.0, "room", "Lifecycle", "Tick", "Scan", "Run")
+        if (CpuLogger.isEnabled) {
+            assertTrue(f.clockReads > 0)
+        } else {
+            assertEquals(0, f.clockReads, "Disabled actor scopes must not sample the CPU clock")
+        }
     }
 
     @Test
@@ -92,16 +112,38 @@ class ActorProfilingTest {
         }
         f.actor.profiler.onSliceEnd(3.0)
 
-        assertEquals(1.0, f.cpu("room", "Command", "Scan"))
-        assertEquals(2.0, f.cpu("room", "Command", "Scan", "Prepare", "Scan"))
+        f.assertCpu(1.0, "room", "Command", "Scan")
+        f.assertCpu(2.0, "room", "Command", "Scan", "Prepare", "Scan")
+    }
+
+    @Test
+    fun mailboxAndScheduledContinuationRunWithoutProfilingClockReadsWhenDisabled() = withFixture { f ->
+        ActorSystem.spawn(f.actor.id) { f.actor }
+        try {
+            ActorSystem.send(f.actor.id, "test", RoomCommand.Scan)
+            assertTrue(ActorKernel.deliverOneReadyActorMessage())
+            assertEquals(0, f.actor.handledCommands)
+            assertTrue(ActorKernel.flushScheduledContinuations())
+            assertEquals(1, f.actor.handledCommands)
+            if (CpuLogger.isEnabled) {
+                assertTrue(f.clockReads > 0)
+            } else {
+                assertEquals(0, f.clockReads, "Disabled kernel profiling must not sample the CPU clock")
+            }
+        } finally {
+            ActorSystem.remove(f.actor.id)
+        }
     }
 
     private fun withFixture(block: (Fixture) -> Unit) {
         val globals = js("globalThis")
         val previousGame = globals.Game
         val f = Fixture()
-        val game = js("({cpu: {}})")
-        game.cpu.getUsed = { f.now }
+        val game = js("({time: 1, cpu: {}})")
+        game.cpu.getUsed = {
+            f.clockReads++
+            f.now
+        }
         globals.Game = game
         CpuLogger.init()
         try {

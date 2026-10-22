@@ -72,7 +72,7 @@ class RoomActor(
         }
     }
 
-    override suspend fun processCommand(msg: RoomCommand) = cpuMark(msg::class) {
+    override suspend fun processCommand(msg: RoomCommand) = cpuMark(msg) {
         when (msg) {
             is RoomCommand.Scan -> scanRoom()
             is RoomCommand.SyncStage -> syncStage()

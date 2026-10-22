@@ -259,10 +259,23 @@ Intent result meanings:
 `ActorBase.cpuMark(label) { ... }` adds nested scopes to the actor's profiling context, including across suspension.
 Only execution slices contribute CPU; time spent waiting for a response or a later tick is excluded.
 
+`CpuLogger.isEnabled` is a compile-time switch. Inline `cpuMark` and `CpuLogger.mark` wrappers return directly to the
+work block when disabled, before computing label names or touching profiling stacks. The kernel bypasses profiling
+CPU samples for both mailbox delivery and continuation resumption. Profiling context entry points are also guarded,
+and disabled contexts do not allocate a `CpuTrace`. `CpuLogger.init()` does not reset a report when disabled.
+Normal CPU-budget checks and the explicit `CpuLogger.total()` summary remain active independently of profiling.
+
+The `CpuTrace` accounting engine itself does not depend on that flag: its deterministic unit tests run even when
+production profiling is disabled. Actor integration tests follow the configured mode, checking CPU attribution when
+enabled and zero profiling clock reads when disabled; handler results, exceptions, and scheduled execution must be
+preserved in either mode.
+
 Scopes can also use `cpuMark(SomeCommand::class) { ... }` or the reified `cpuMark<SomeCommand, ResultType> { ... }`
 overload. Both derive the label from the class. When already at the matching mailbox message's base scope, the typed
 overload reuses that scope instead of adding a duplicate type node. Scopes nested inside another operation remain
-distinct. `RoomActor` wraps command dispatch once in `processCommand`; lifecycle handlers call it without extra marks.
+distinct. For dynamic message types, `cpuMark(payload) { ... }` resolves the payload class only after the enabled check;
+passing `payload::class` directly would evaluate that argument even when profiling is off. `RoomActor` wraps command
+dispatch once in `processCommand`; lifecycle handlers call it without extra marks.
 Intent execution is marked separately by `ActorIntentBase`, while explicit operation labels such as `Broadcast` remain
 available. This reduces redundant scopes and CPU clock reads without changing execution order or game behavior.
 

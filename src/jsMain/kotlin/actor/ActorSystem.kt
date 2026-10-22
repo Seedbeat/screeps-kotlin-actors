@@ -137,7 +137,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
 
         if (Root.wasReset) {
             if (Memory.actorKernelSnapshot != null) {
-                CpuLogger.mark(::restore) {
+                CpuLogger.mark(::restore.name) {
                     restore(Memory.actorKernelSnapshot!!)
                 }
             } else {
@@ -176,7 +176,7 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
             }
 
 
-            CpuLogger.mark(::snapshot) {
+            CpuLogger.mark(::snapshot.name) {
                 Memory.actorKernelSnapshot = snapshot()
             }
         } finally {
@@ -185,23 +185,24 @@ object ActorSystem : ILogging by Logging<ActorSystem>(LogLevel.WARN) {
         }
     }
 
-    private fun runTickRound(state: TickState): Unit = CpuLogger.mark(::runTickRound) {
+    private fun runTickRound(state: TickState): Unit = CpuLogger.mark(::runTickRound.name) {
         wakeUpScheduledActors(state)
         flushScheduledContinuations(state)
         deliverMailboxMessages(state)
     }
 
-    private fun wakeUpScheduledActors(state: TickState): Unit = CpuLogger.mark(::wakeUpScheduledActors) {
+    private fun wakeUpScheduledActors(state: TickState): Unit = CpuLogger.mark(::wakeUpScheduledActors.name) {
         state.increaseScheduledWakeUps(ActorKernel.wakeActorsReadyByTick())
     }
 
-    private fun flushScheduledContinuations(state: TickState): Unit = CpuLogger.mark(::flushScheduledContinuations) {
+    private fun flushScheduledContinuations(state: TickState): Unit =
+        CpuLogger.mark(::flushScheduledContinuations.name) {
         if (ActorKernel.flushScheduledContinuations()) {
             state.increaseFlushedContinuations()
         }
     }
 
-    private fun deliverMailboxMessages(state: TickState): Unit = CpuLogger.mark(::deliverMailboxMessages) {
+    private fun deliverMailboxMessages(state: TickState): Unit = CpuLogger.mark(::deliverMailboxMessages.name) {
         while (true) {
             if (state.checkIsStopped())
                 break

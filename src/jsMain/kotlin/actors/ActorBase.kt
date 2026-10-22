@@ -6,6 +6,7 @@ import actors.base.ActorApi
 import actors.base.ActorBinding
 import actors.base.Actors
 import actors.base.Lifecycle
+import utils.trace.CpuLogger
 import kotlin.reflect.KClass
 
 abstract class ActorBase<
@@ -68,17 +69,26 @@ abstract class ActorBase<
     override suspend fun <T> systemRequest(payload: Request<T>): T =
         requestFrom(actorId = Actors.SYSTEM, payload = payload)
 
-    protected suspend inline fun <reified C, T> cpuMark(noinline block: suspend () -> T): T =
-        cpuMark(C::class, block)
+    protected suspend inline fun <reified C, T> cpuMark(block: suspend () -> T): T {
+        if (!CpuLogger.isEnabled) return block()
+        return cpuMark(C::class, block)
+    }
 
-    protected suspend fun <T> cpuMark(type: KClass<*>, block: suspend () -> T): T {
+    protected suspend inline fun <T> cpuMark(payload: Payload, block: suspend () -> T): T {
+        if (!CpuLogger.isEnabled) return block()
+        return cpuMark(payload::class, block)
+    }
+
+    protected suspend inline fun <T> cpuMark(type: KClass<*>, block: suspend () -> T): T {
+        if (!CpuLogger.isEnabled) return block()
         val label = type.simpleName ?: "Unknown"
         // Mailbox delivery already opens the message type scope.
         if (profiler.isMessageScope(label)) return block()
         return cpuMark(label, block)
     }
 
-    protected suspend fun <T> cpuMark(label: String, block: suspend () -> T): T {
+    protected suspend inline fun <T> cpuMark(label: String, block: suspend () -> T): T {
+        if (!CpuLogger.isEnabled) return block()
         profiler.push(label)
         return try {
             block()

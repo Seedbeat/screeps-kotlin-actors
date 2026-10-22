@@ -39,7 +39,7 @@ abstract class ActorIntentBase<
                 val entry = selectNextIntent(time) ?: break
                 entry.lastAttemptedTick = time
 
-                cpuMark(entry.intent::class) {
+                cpuMark(entry.intent) {
                     when (executeIntent(entry.intent, time)) {
                         IntentResultType.COMPLETED,
                         IntentResultType.DROPPED -> {

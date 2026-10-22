@@ -5,6 +5,7 @@ import utils.Number.toFixed
 import kotlin.reflect.KFunction
 
 object CpuLogger {
+    @PublishedApi
     internal const val isEnabled = true
     private const val accuracy = 2
     internal const val NO_NODE = -1
@@ -14,6 +15,7 @@ object CpuLogger {
     private var printFilter = CpuTraceFilter.Empty
 
     fun init() {
+        if (!isEnabled) return
         tree.clear()
         activeMarks.clear()
     }
@@ -34,12 +36,20 @@ object CpuLogger {
         printFilter = CpuTraceFilter.Empty
     }
 
-    fun currentMarkId(): String? = activeMarks.lastOrNull()?.key
+    fun currentMarkId(): String? = if (isEnabled) activeMarks.lastOrNull()?.key else null
 
-    inline fun <T> mark(id: KFunction<*>, parentId: KFunction<*>? = null, action: () -> T): T =
-        mark(id.name, parentId?.name ?: currentMarkId(), action)
+    inline fun <T> mark(id: KFunction<*>, parentId: KFunction<*>? = null, action: () -> T): T {
+        if (!isEnabled) return action()
+        return mark(id.name, parentId?.name ?: currentMarkId(), action)
+    }
 
-    inline fun <T> mark(id: String, parentId: String? = currentMarkId(), action: () -> T): T {
+    inline fun <T> mark(id: String, action: () -> T): T {
+        if (!isEnabled) return action()
+        return mark(id, currentMarkId(), action)
+    }
+
+    inline fun <T> mark(id: String, parentId: String?, action: () -> T): T {
+        if (!isEnabled) return action()
         markStart(id, parentId)
         return try {
             action()
