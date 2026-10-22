@@ -235,6 +235,7 @@ fun Task.configureScreepsUpload(codeDirectory: Directory, targetBranch: String) 
         val url = URI("$host/api/user/code")
         val request = HttpRequest.newBuilder()
             .uri(url)
+            .timeout(30.seconds.toJavaDuration())
             .setHeader("Content-Type", "application/json; charset=utf-8")
             .POST(HttpRequest.BodyPublishers.ofString(uploadContentJson))
 
@@ -245,6 +246,8 @@ fun Task.configureScreepsUpload(codeDirectory: Directory, targetBranch: String) 
         }
 
         val response = HttpClient.newBuilder()
+            // Avoid h2c upgrades: the private server's Node/Express stack can stall on them.
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(30.seconds.toJavaDuration())
             .build()
             .send(request.build(), HttpResponse.BodyHandlers.ofString())

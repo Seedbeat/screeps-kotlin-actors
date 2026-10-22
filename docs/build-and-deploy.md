@@ -126,7 +126,10 @@ Deploy:
 This task depends on `release` and uploads the release directory contents to the Screeps API.
 
 Deploy fails the Gradle task when the Screeps API returns a non-2xx response.
-The HTTP client uses a 30 second connect timeout.
+The HTTP client explicitly uses HTTP/1.1. Java's default HTTP/2 preference can send an `h2c` upgrade on plain HTTP;
+this was observed to hang against a private server using Node/Express and `screepsmod-auth` 2.10.1, while the same
+request over HTTP/1.1 returned immediately. Both connection establishment and each upload request have a 30 second
+timeout, so waiting for response headers is bounded as well as connecting.
 
 Local deploy:
 
@@ -166,6 +169,17 @@ Authentication:
 
 - if `screepsToken` exists, deploy uses `X-Token`
 - otherwise deploy uses basic auth from user and password
+
+For a private server with `screepsmod-auth`, configure `screepsHost` with the scheme and port, for example
+`http://private-server:21025`, and set `screepsUser` and `screepsPassword` to the mod's API credentials. Remove the
+`screepsToken` property entirely to select Basic auth; a blank or expired token still takes precedence. The mod has a
+Basic auth handler specifically for code uploads, which obtains a session token internally.
+
+A token from `/api/auth/signin` is a short-lived session token (60 seconds in the stock backend), so it should not be
+stored for future deployments. Persistent tokens from `auth.createAuthToken` depend on the mod's route integration:
+on the inspected 2.10.1 server, the configured persistent token authenticated `GET /api/auth/me` and
+`GET /api/user/name`, but `GET /api/user/code?branch=default` returned 401. This is distinct from the HTTP upgrade hang;
+forcing HTTP/1.1 does not fix the server-side token rejection. Use Basic auth for uploads in that setup.
 
 `gradle.properties` is ignored by git and may contain local secrets. Do not commit or quote token values.
 
