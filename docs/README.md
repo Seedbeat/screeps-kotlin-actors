@@ -16,7 +16,8 @@ Read these in order:
 6. [Memory & Persistence](memory-and-persistence.md): Memory schema, codecs, and reset semantics.
 7. [Build & Deploy](build-and-deploy.md): Gradle build, release, and deploy pipeline.
 8. [Development guide](development-guide.md): safe change recipes, known gaps, and review checklist.
-9. [Screeps CLI](screeps-cli.md): live game logs, interactive commands, and connection settings.
+9. [Screeps CLI](screeps-cli.md): live game logs, interactive commands, connection settings, and reusable CPU log
+   capture/analysis tools.
 
 ## Runtime Summary
 

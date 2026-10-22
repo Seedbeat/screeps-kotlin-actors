@@ -154,6 +154,39 @@ a disconnection may be missed. Results are produced when the game processes the 
 return a result until ticking resumes. The connection status confirms authentication and that the subscription was
 sent; the protocol does not acknowledge subscriptions separately.
 
+## Capture And Analyze CPU Logs
+
+Use these reusable tools for performance investigations:
+
+```powershell
+.\.venv\Scripts\python.exe tools\capture_logs.py --seconds 45 --output build\performance\baseline.log
+.\.venv\Scripts\python.exe tools\analyze_logs.py build\performance\baseline.log --output-dir build\performance\baseline-analysis
+```
+
+`capture_logs.py` runs the existing CLI in `--logs-only` mode, saves UTF-8 output, and terminates its child process at
+the deadline or on Ctrl+C. The duration includes connection startup. Early CLI failures retain their exit code and
+diagnostics in the log. It accepts `--properties` and `--shard` with the same meaning as the console. Without
+`--output`,
+it creates a timestamped log under the project's `build/performance`, even when invoked from another directory.
+Explicit paths are relative to the current working directory. Capture sends no game commands and does not change
+profiling settings or deploy a bundle.
+
+`analyze_logs.py` works offline and writes `report.md`, `summary.json`, and `ticks.json`. Without `--output-dir`, it
+creates `<log-stem>-analysis` beside the log. It computes mean, median, nearest-rank p95, min/max, observed profiling
+paths with both total and exclusive CPU, periodic sync groups, and visible SystemActor tick lag. It also records
+incomplete ticks, missing tick ranges, duplicates, resets, errors, and connection events. Incomplete ticks are excluded
+from CPU statistics. An empty sample fails with an explanatory message rather than a traceback.
+
+The analyzer also accepts logs captured by redirecting `screeps-cli --logs-only`. With profiling disabled or tree output
+filtered, it still analyzes Root CPU summary lines; unavailable tree metrics remain absent or null. To obtain detailed
+trees, the deployed bot must have profiling enabled; these tools do not enable it automatically.
+
+Interpret measurements carefully: parent and child paths overlap, and ActorSystem includes actor execution, so their
+totals must not be added. Root CPU minus ActorSystem includes other work outside the scheduler as well as report output;
+it is not a direct measurement of printing overhead. The Root summary precedes final log output and engine Memory
+serialization. Missing paths or suppressed logs can understate costs, and no visible scheduler stop does not prove
+empty queues. Keep generated samples and reports under the ignored `build` directory.
+
 ## Verify
 
 The CLI is independent of the Kotlin runtime and does not change actor behavior, persistence, or the deployed bundle.
@@ -170,3 +203,5 @@ that 2,500 long log lines and window resizing preserve the input text/cursor, an
 typing.
 One-command tests cover correlated results, clean stdout/stderr, JavaScript errors, timeout without resubmission,
 argument parsing, and the JavaScript wrapper itself (the wrapper test uses Node when available).
+Profiling tool tests cover bounded child-process capture, connection arguments and failure codes, Unicode, nested CPU
+paths, disabled/filtered profiling, incomplete samples, tick gaps and restarts, and offline report generation.

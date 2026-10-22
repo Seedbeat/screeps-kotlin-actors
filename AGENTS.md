@@ -43,6 +43,8 @@ Keep these files current when behavior or ownership changes enough that another 
 - `src/jsMain/kotlin/room/context/`: cached room find helpers
 - `src/jsMain/kotlin/store/`, `map/`, `heuristics/`, `utils/`: shared helpers
 - `src/Constants.js`: Screeps constants shim used by the JS build
+- `tools/capture_logs.py`, `tools/analyze_logs.py`: bounded live log capture and offline CPU reports; see
+  `docs/screeps-cli.md` for usage. Store generated logs/reports under ignored `build/performance`.
 
 ## Runtime Boundaries
 
