@@ -8,3 +8,7 @@ gradle.properties
 
 # custom
 .kotlin
+# Python console tooling
+.venv/
+__pycache__/
+*.pyc

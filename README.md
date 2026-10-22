@@ -54,6 +54,12 @@ SYSTEM: SystemActor
 
 Creep actors are global. Their ownership does not depend on the room where the creep currently stands.
 
+## Game Console
+
+Run `.\screeps-cli.bat` for live game logs and JavaScript commands using credentials from `gradle.properties`.
+Use `.\screeps-cli run "Game.time"` to print one command result and exit.
+See [setup and controls](docs/screeps-cli.md).
+
 ## Docs
 
 Start with [docs/README.md](docs/README.md). The deeper docs cover:

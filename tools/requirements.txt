@@ -1,0 +1,5 @@
+screepsapi==0.5.1
+prompt-toolkit>=3.0.43,<4
+javaproperties==0.8.2
+requests>=2.31,<3
+websocket-client>=1.7,<2
