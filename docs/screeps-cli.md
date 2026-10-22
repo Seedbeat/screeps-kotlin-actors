@@ -42,11 +42,9 @@ Additional modes:
 `--check` verifies HTTP authentication and the WebSocket subscription, then exits without sending game commands.
 `--logs-only` follows the stream without a command prompt, including when output is redirected to a file.
 
-The interactive log panel omits the emoji presentation selector U+FE0F (for example, `🛠️` is displayed as `🛠`).
-This avoids a `prompt_toolkit` width mismatch that otherwise shifts CPU values during partial redraws. Only the log
-panel's display text is normalized; received lines, command input, `run` results, and `--logs-only` output retain their
-original characters. Use `run "Object.keys(Game.creeps)"` or `--logs-only` when copying exact creep names containing
-presentation selectors. This CLI adjustment does not require deploying the bot.
+The interactive log panel preserves log text, including emoji and presentation selectors such as U+FE0F (`🛠️`).
+It does not normalize emoji, replace them with escapes, or rearrange CPU fields. The usual HTML/ANSI cleanup and
+credential redaction still apply before display. Glyph rendering and visual alignment are handled by the terminal.
 
 ## Run One Command
 
