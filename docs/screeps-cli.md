@@ -85,12 +85,16 @@ namespace:
 
 ```powershell
 .\screeps-cli run "system.profile.enabled"
-.\screeps-cli run "system.profile.enabled = false"
-.\screeps-cli run "system.profile.enabled = true"
+.\screeps-cli run "system.profile.off"
+.\screeps-cli run "system.profile.on"
 ```
 
 `system.profile.enabled` reads and changes the live `CpuLogger` flag. `system.profile` is a separate, non-writable
 namespace containing `enabled` and `filter`; assign its properties rather than the namespace itself.
+Reading `system.profile.on` enables profiling and returns `true`; reading `system.profile.off` disables it and returns
+`false`. These are action getters, used without parentheses or assignment. Any explicit read executes the action.
+They are non-enumerable, so `Object.keys` and the CLI's JSON serialization of `system.profile` or `system` do not
+toggle profiling. `system.profile.enabled` remains the passive state getter and a Boolean setter.
 Only JavaScript Booleans are accepted by the enabled setter;
 strings such as `"false"`, numbers, and null are rejected. The setting is VM-local, defaults to `true`, and is not
 written to Memory. A VM reset restores the default and reinstalls the facade. The CLI itself is unchanged.
@@ -122,11 +126,17 @@ ticks and profiling toggles, and resets to `[]` after a VM reset without writing
 
 Console bindings are declared in `utils/console/SystemConsole.kt` through `ConsoleNamespace.install("system")`.
 Each `property` supplies a name, a `ConsoleType`, and explicit get/set handlers. `ConsoleNamespace` installs actual
-JavaScript accessors with `Object.defineProperties`; `ConsoleType` validates the entire input before invoking a setter
+JavaScript accessors through the helpers in `utils.Object`: `dataDescriptor` accepts `value` and `writable`, while
+`accessorDescriptor` accepts `get` and `set`. They only emit fields for their descriptor kind; flags default to `false`.
+They have no arbitrary initialization block that could mix the two kinds. `defineProperties` builds the object;
+`defineGlobal` installs a non-writable, enumerable, configurable global reference so installation can be repeated.
+`plain` remains an ordinary object factory.
+`ConsoleType` validates the entire input before invoking a setter
 and includes the property's full path in errors. Add new settings as bindings and reuse or extend the input types;
 keep their state and side effects in the owning service. Descriptor construction runs only when installing the facade.
 `namespace("profile") { ... }` builds a child object with a non-writable, non-configurable reference. Its properties
 retain ordinary typed getters and setters; assigning a Boolean to the namespace is not a profiling command.
+`action("on") { ... }` declares a non-enumerable, read-only getter that invokes a handler when explicitly read.
 The former flat names `system.profiling` and `system.profileFilter` have been replaced by this API.
 This layer does not persist settings or dispatch actor messages automatically.
 

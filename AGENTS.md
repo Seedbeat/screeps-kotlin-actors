@@ -45,6 +45,8 @@ Keep these files current when behavior or ownership changes enough that another 
 - `src/Constants.js`: Screeps constants shim used by the JS build
 - `src/jsMain/kotlin/utils/console/SystemConsole.kt`: VM-local `system.profile.enabled` and `system.profile.filter`
   console controls, installed on reset. `profile` is a non-writable namespace with mutable properties.
+  Reading non-enumerable `system.profile.on` / `.off` toggles profiling and returns its state; `enabled` reads are
+  passive.
   Defaults are `true` and `[]`; neither writes Memory. Profiling changes start a new
   profiling session; the path filter affects only CPU tree output and preserves the current session.
 - `tools/capture_logs.py`, `tools/analyze_logs.py`: bounded live log capture and offline CPU reports; see

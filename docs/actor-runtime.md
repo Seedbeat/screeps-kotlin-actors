@@ -262,6 +262,9 @@ Only execution slices contribute CPU; time spent waiting for a response or a lat
 `CpuLogger.isEnabled` is a runtime switch, defaulting to `true` after a VM reset. `Root.onReset()` installs a small
 JavaScript facade through `utils.console.SystemConsole`: read or assign a Boolean to `system.profile.enabled`.
 `system.profile` is a non-writable namespace containing the mutable `enabled` and `filter` properties.
+Read `system.profile.on` or `system.profile.off` to switch the flag without assignment; both invoke the same
+`CpuLogger` handler and return the resulting Boolean. These action getters are non-enumerable so ordinary JSON
+inspection does not toggle profiling. Reading `enabled` remains passive.
 `CpuLogger` owns this transient setting; no actor protocol or Memory schema is involved, and the flag does not
 survive a VM reset. See [console commands](screeps-cli.md#runtime-controls).
 
