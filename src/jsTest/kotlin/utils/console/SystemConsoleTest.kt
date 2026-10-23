@@ -5,6 +5,46 @@ import kotlin.test.*
 
 class SystemConsoleTest {
     @Test
+    fun readingOnAndOffTogglesProfilingWithoutResettingRepeatedValuesOrTheFilter() = withConsole {
+        js("globalThis.system.profile.filter = ['room']")
+        val session = CpuLogger.session
+        assertEquals(false, js("(0, eval)('system.profile.off')"))
+        assertTrue(!CpuLogger.isEnabled)
+        assertEquals(session + 1, CpuLogger.session)
+        assertEquals(false, js("(0, eval)('system.profile.off')"))
+        assertEquals(session + 1, CpuLogger.session)
+        assertEquals(true, js("(0, eval)('system.profile.on')"))
+        assertTrue(CpuLogger.isEnabled)
+        assertEquals(session + 2, CpuLogger.session)
+        assertEquals(true, js("(0, eval)('system.profile.on')"))
+        assertEquals(session + 2, CpuLogger.session)
+        assertContentEquals(arrayOf("room"), CpuLogger.printFilterPath())
+    }
+
+    @Test
+    fun enumeratingAndSerializingTheNamespaceDoesNotTriggerActions() = withConsole {
+        js("globalThis.system.profile.enabled = false")
+        val session = CpuLogger.session
+        assertContentEquals(
+            arrayOf("enabled", "filter"),
+            js("Object.keys(globalThis.system.profile)").unsafeCast<Array<String>>()
+        )
+        val snapshot = js("JSON.parse(JSON.stringify(globalThis.system))")
+        assertEquals(false, snapshot.profile.enabled)
+        assertEquals(0, snapshot.profile.filter.length)
+        assertEquals(
+            false,
+            js("Object.prototype.hasOwnProperty.call(JSON.parse(JSON.stringify(globalThis.system.profile)), 'on')")
+        )
+        assertEquals(
+            false,
+            js("Object.prototype.hasOwnProperty.call(JSON.parse(JSON.stringify(globalThis.system.profile)), 'off')")
+        )
+        assertTrue(!CpuLogger.isEnabled)
+        assertEquals(session, CpuLogger.session)
+    }
+
+    @Test
     fun consoleExpressionsReadAndToggleProfiling() = withConsole {
         assertEquals(true, js("(0, eval)('system.profile.enabled')"))
         assertEquals(false, js("(0, eval)('system.profile.enabled = false')"))
