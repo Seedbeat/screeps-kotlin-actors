@@ -2,7 +2,6 @@ package utils.console
 
 import utils.Object
 
-/** Builds JavaScript accessors without exposing descriptors to domain bindings. */
 internal class ConsoleNamespace private constructor(private val name: String) {
     private val descriptors = Object.plain
 
@@ -20,10 +19,22 @@ internal class ConsoleNamespace private constructor(private val name: String) {
         }
     }
 
+    fun namespace(
+        name: String,
+        configure: ConsoleNamespace.() -> Unit,
+    ) {
+        val child = ConsoleNamespace("${this.name}.$name").apply(configure).build()
+        descriptors[name] = Object.plain {
+            value = child
+            enumerable = true
+        }
+    }
+
+    private fun build(): dynamic = Object.Object.defineProperties(Object.plain, descriptors)
+
     companion object {
         fun install(name: String, configure: ConsoleNamespace.() -> Unit) {
-            val namespace = ConsoleNamespace(name).apply(configure)
-            val instance = Object.Object.defineProperties(Object.plain, namespace.descriptors)
+            val instance = ConsoleNamespace(name).apply(configure).build()
             Object.Object.defineProperty(js("globalThis"), name, Object.plain {
                 value = instance
                 configurable = true

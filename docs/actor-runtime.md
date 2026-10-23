@@ -260,11 +260,12 @@ Intent result meanings:
 Only execution slices contribute CPU; time spent waiting for a response or a later tick is excluded.
 
 `CpuLogger.isEnabled` is a runtime switch, defaulting to `true` after a VM reset. `Root.onReset()` installs a small
-JavaScript facade through `utils.console.SystemConsole`: read `system.profiling` or assign a Boolean to change the
-flag. `CpuLogger` owns this transient setting; no actor protocol or Memory schema is involved, and the flag does not
+JavaScript facade through `utils.console.SystemConsole`: read or assign a Boolean to `system.profile.enabled`.
+`system.profile` is a non-writable namespace containing the mutable `enabled` and `filter` properties.
+`CpuLogger` owns this transient setting; no actor protocol or Memory schema is involved, and the flag does not
 survive a VM reset. See [console commands](screeps-cli.md#runtime-controls).
 
-The same facade exposes `system.profileFilter` as a copied JS array of path labels. Assigning a string array selects
+The same facade exposes `system.profile.filter` as a copied JS array of path labels. Assigning a string array selects
 the printed subtree; `*` matches one level, and `null` or `[]` clears the filter. Ancestors and matching descendants
 are shown, with ancestor totals still including hidden work. `CpuLogger` owns this VM-local print setting, which
 defaults to an empty path after reset. Changing it preserves the current report, profiling session, and continuations.

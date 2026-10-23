@@ -80,15 +80,18 @@ does not resend the command, because its side effects may already have happened.
 
 ## Runtime Controls
 
-After deploying a bundle with the console facade and running its first loop, the bot exposes `system.profiling`:
+After deploying a bundle with the console facade and running its first loop, the bot exposes the `system.profile`
+namespace:
 
 ```powershell
-.\screeps-cli run "system.profiling"
-.\screeps-cli run "system.profiling = false"
-.\screeps-cli run "system.profiling = true"
+.\screeps-cli run "system.profile.enabled"
+.\screeps-cli run "system.profile.enabled = false"
+.\screeps-cli run "system.profile.enabled = true"
 ```
 
-The property reads and changes the live `CpuLogger` flag without rebuilding. Only JavaScript Booleans are accepted;
+`system.profile.enabled` reads and changes the live `CpuLogger` flag. `system.profile` is a separate, non-writable
+namespace containing `enabled` and `filter`; assign its properties rather than the namespace itself.
+Only JavaScript Booleans are accepted by the enabled setter;
 strings such as `"false"`, numbers, and null are rejected. The setting is VM-local, defaults to `true`, and is not
 written to Memory. A VM reset restores the default and reinstalls the facade. The CLI itself is unchanged.
 
@@ -97,13 +100,13 @@ session still execute but are not included after re-enabling; profiling resumes 
 the same value has no effect on the current session. CPU-budget enforcement and the Root CPU summary are independent
 of this setting. See [CPU profiling](actor-runtime.md#cpu-profiling) for attribution and performance limits.
 
-`system.profileFilter` selects the printed CPU subtree using a path of labels from the report root:
+`system.profile.filter` selects the printed CPU subtree using a path of labels from the report root:
 
 ```powershell
-.\screeps-cli run "system.profileFilter"
-.\screeps-cli run "system.profileFilter = ['W6N2']"
-.\screeps-cli run "system.profileFilter = ['*', 'Lifecycle', 'Tick', 'processIntents']"
-.\screeps-cli run "system.profileFilter = null"
+.\screeps-cli run "system.profile.filter"
+.\screeps-cli run "system.profile.filter = ['W6N2']"
+.\screeps-cli run "system.profile.filter = ['*', 'Lifecycle', 'Tick', 'processIntents']"
+.\screeps-cli run "system.profile.filter = []"
 ```
 
 Paths match from the root; `*` matches exactly one label. The matching node, its descendants, and the ancestors needed
@@ -122,6 +125,9 @@ Each `property` supplies a name, a `ConsoleType`, and explicit get/set handlers.
 JavaScript accessors with `Object.defineProperties`; `ConsoleType` validates the entire input before invoking a setter
 and includes the property's full path in errors. Add new settings as bindings and reuse or extend the input types;
 keep their state and side effects in the owning service. Descriptor construction runs only when installing the facade.
+`namespace("profile") { ... }` builds a child object with a non-writable, non-configurable reference. Its properties
+retain ordinary typed getters and setters; assigning a Boolean to the namespace is not a profiling command.
+The former flat names `system.profiling` and `system.profileFilter` have been replaced by this API.
 This layer does not persist settings or dispatch actor messages automatically.
 
 ## Connection Settings
